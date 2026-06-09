@@ -1,0 +1,1 @@
+// Placeholder for src/resources/events/index.ts

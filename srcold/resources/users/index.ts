@@ -1,0 +1,1 @@
+// Placeholder for src/resources/users/index.ts
