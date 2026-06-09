@@ -9,27 +9,60 @@ export const NotificationList = () => {
   });
 
   const columns: GridColDef<Notification>[] = [
-    { field: "id", headerName: "ID", width: 80 },
-    { field: "title", headerName: "Title", flex: 1 },
-    { field: "message", headerName: "Message", flex: 2 },
-    { field: "target_role", headerName: "Target Role", flex: 1 },
-    { field: "status", headerName: "Status", flex: 1 },
-    { field: "created_at", headerName: "Created At", flex: 1, valueFormatter: (params) => new Date(params.value).toLocaleString() },
+    {
+      field: "id",
+      headerName: "ID",
+      width: 80,
+    },
+    {
+      field: "notification_code",
+      headerName: "Code",
+      width: 140,
+    },
+    {
+      field: "title",
+      headerName: "Title",
+      flex: 1,
+    },
+    {
+      field: "type",
+      headerName: "Type",
+      width: 140,
+    },
+    {
+      field: "priority",
+      headerName: "Priority",
+      width: 140,
+    },
+    {
+      field: "is_active",
+      headerName: "Active",
+      width: 100,
+      valueGetter: (_, row) =>
+        row.is_active ? "Yes" : "No",
+    },
+    {
+      field: "created_at",
+      headerName: "Created",
+      width: 180,
+      valueFormatter: (value) =>
+        value ? new Date(value).toLocaleString() : "",
+    },
     {
       field: "actions",
       headerName: "Actions",
-      renderCell: function render({ row }) {
-        return (
-          <Stack direction="row" spacing={1}>
-            <ShowButton hideText recordItemId={row.id} />
-            <EditButton hideText recordItemId={row.id} />
-            <DeleteButton hideText recordItemId={row.id} />
-          </Stack>
-        );
-      },
+      minWidth: 140,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Stack direction="row" spacing={1}>
+          <ShowButton hideText recordItemId={row.id} />
+          <EditButton hideText recordItemId={row.id} />
+          <DeleteButton hideText recordItemId={row.id} />
+        </Stack>
+      ),
       align: "center",
       headerAlign: "center",
-      minWidth: 120,
     },
   ];
 

@@ -10,19 +10,16 @@ import { useGetIdentity } from "@refinedev/core";
 import { HamburgerMenu, RefineThemedLayoutHeaderProps } from "@refinedev/mui";
 import React, { useContext } from "react";
 import { ColorModeContext } from "../../contexts/color-mode";
-
-type IUser = {
-  id: number;
-  name: string;
-  avatar: string;
-};
+import { UserProfile } from "../../types/user"; // Import UserProfile type
 
 export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   sticky = true,
 }) => {
   const { mode, setMode } = useContext(ColorModeContext);
 
-  const { data: user } = useGetIdentity<IUser>();
+  const { data: user } = useGetIdentity<UserProfile>();
+
+  console.log("Header component: user identity data:", user);
 
   return (
     <AppBar position={sticky ? "sticky" : "relative"}>
@@ -30,15 +27,23 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
         <Stack
           direction="row"
           width="100%"
-          justifyContent="flex-end"
+          justifyContent="space-between" // Changed to space-between to push items to ends
           alignItems="center"
         >
           <HamburgerMenu />
+          
+          {/* Directly render full_name here for testing */}
+          {user?.full_name && (
+            <div style={{ color: 'blue', fontWeight: 'bold', marginRight: '16px' }}>
+              Welcome, {user.full_name}
+            </div>
+          )}
+
           <Stack
             direction="row"
-            width="100%"
-            justifyContent="flex-end"
+            gap="16px"
             alignItems="center"
+            justifyContent="flex-end" // Aligned to end
           >
             <IconButton
               color="inherit"
@@ -49,29 +54,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               {mode === "dark" ? <LightModeOutlined /> : <DarkModeOutlined />}
             </IconButton>
 
-            {(user?.avatar || user?.name) && (
-              <Stack
-                direction="row"
-                gap="16px"
-                alignItems="center"
-                justifyContent="center"
-              >
-                {user?.name && (
-                  <Typography
-                    sx={{
-                      display: {
-                        xs: "none",
-                        sm: "inline-block",
-                      },
-                    }}
-                    variant="subtitle2"
-                  >
-                    {user?.name}
-                  </Typography>
-                )}
-                <Avatar src={user?.avatar} alt={user?.name} />
-              </Stack>
-            )}
+            {/* Optionally display avatar if available in UserProfile */}
+            {user?.avatar_url && <Avatar src={user.avatar_url} alt={user.full_name} />}
           </Stack>
         </Stack>
       </Toolbar>

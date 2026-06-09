@@ -1,50 +1,80 @@
 import React from "react";
 import { useList } from "@refinedev/core";
-import { Grid, Card, CardContent, Typography, CircularProgress, CardActionArea } from "@mui/material"; // Added CardActionArea
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { Grid, Card, CardContent, Typography, CircularProgress, CardActionArea } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 export const DashboardStats: React.FC = () => {
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
-  const { data: branchesData, isLoading: isLoadingBranches, isError: isErrorBranches } = useList({
+  // Fetch Branches
+  const branchesList = useList({
     resource: "branches",
-    config: {
-      hasPagination: false,
+    pagination: {
+      mode: "off",
     },
   });
+  const branchesData = branchesList.result?.data;
+  const isLoadingBranches = branchesList.query.isLoading;
+  const isErrorBranches = branchesList.query.isError;
 
-  const { data: eventsData, isLoading: isLoadingEvents, isError: isErrorEvents } = useList({
+  // Fetch Events
+  const eventsList = useList({
     resource: "events",
-    config: {
-      hasPagination: false,
+    pagination: {
+      mode: "off",
     },
   });
+  const eventsData = eventsList.result?.data;
+  const isLoadingEvents = eventsList.query.isLoading;
+  const isErrorEvents = eventsList.query.isError;
 
-  const { data: usersData, isLoading: isLoadingUsers, isError: isErrorUsers } = useList({
+  // Fetch all Users
+  const usersList = useList({
     resource: "user_profiles",
-    config: {
-      hasPagination: false,
+    pagination: {
+      mode: "off",
     },
   });
+  const usersData = usersList.result?.data;
+  const isLoadingUsers = usersList.query.isLoading;
+  const isErrorUsers = usersList.query.isError;
 
-  const { data: pendingUsersData, isLoading: isLoadingPendingUsers, isError: isErrorPendingUsers } = useList({
+  // Fetch Pending Users
+  const pendingUsersList = useList({
     resource: "user_profiles",
     filters: [{ field: "status", operator: "eq", value: "PENDING" }],
-    config: {
-      hasPagination: false,
+    pagination: {
+      mode: "off",
     },
   });
+  const pendingUsersData = pendingUsersList.result?.data;
+  const isLoadingPendingUsers = pendingUsersList.query.isLoading;
+  const isErrorPendingUsers = pendingUsersList.query.isError;
 
-  const totalBranches = branchesData?.data.length || 0;
-  const totalEvents = eventsData?.data.length || 0;
-  const totalUsers = usersData?.data.length || 0;
-  const pendingUsers = pendingUsersData?.data.length || 0;
+  // Fetch Notifications
+  const notificationsList = useList({
+    resource: "notifications",
+    pagination: {
+      mode: "off",
+    },
+  });
+  const notificationsData = notificationsList.result?.data;
+  const isLoadingNotifications = notificationsList.query.isLoading;
+  const isErrorNotifications = notificationsList.query.isError;
 
-  if (isLoadingBranches || isLoadingEvents || isLoadingUsers || isLoadingPendingUsers) {
+
+  const totalBranches = branchesData?.length ?? 0;
+  const totalEvents = eventsData?.length ?? 0;
+  const totalUsers = usersData?.length ?? 0;
+  const pendingUsers = pendingUsersData?.length ?? 0;
+  const totalNotifications = notificationsData?.length ?? 0;
+
+
+  if (isLoadingBranches || isLoadingEvents || isLoadingUsers || isLoadingPendingUsers || isLoadingNotifications) {
     return <CircularProgress />;
   }
 
-  if (isErrorBranches || isErrorEvents || isErrorUsers || isErrorPendingUsers) {
+  if (isErrorBranches || isErrorEvents || isErrorUsers || isErrorPendingUsers || isErrorNotifications) {
     return <Typography color="error">Error loading dashboard stats.</Typography>;
   }
 
@@ -52,7 +82,7 @@ export const DashboardStats: React.FC = () => {
     <Grid container spacing={2} sx={{ mt: 2 }}>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/branches")}> {/* Added CardActionArea and onClick */}
+          <CardActionArea onClick={() => navigate("/branches")}>
             <CardContent>
               <Typography variant="h6" component="div">
                 Total Branches
@@ -66,7 +96,7 @@ export const DashboardStats: React.FC = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/events")}> {/* Added CardActionArea and onClick */}
+          <CardActionArea onClick={() => navigate("/events")}>
             <CardContent>
               <Typography variant="h6" component="div">
                 Total Events
@@ -80,7 +110,21 @@ export const DashboardStats: React.FC = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/users")}> {/* Updated path to /users */}
+          <CardActionArea onClick={() => navigate("/notifications")}>
+            <CardContent>
+              <Typography variant="h6" component="div">
+                Total Notifications
+              </Typography>
+              <Typography variant="h4" color="primary">
+                {totalNotifications}
+              </Typography>
+            </CardContent>
+          </CardActionArea>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <Card>
+          <CardActionArea onClick={() => navigate("/users")}>
             <CardContent>
               <Typography variant="h6" component="div">
                 Total Users
@@ -94,7 +138,7 @@ export const DashboardStats: React.FC = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/approvals")}> {/* Added CardActionArea and onClick */}
+          <CardActionArea onClick={() => navigate("/users")}> {/* Assuming pending users are managed within the main users list */}
             <CardContent>
               <Typography variant="h6" component="div">
                 Pending Users

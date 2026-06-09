@@ -5,23 +5,76 @@ import { Notification } from "../../types/notification";
 
 export const NotificationShow = () => {
   const { query } = useShow<Notification>(); // Corrected destructuring to queryResult
-  const record = query?.data?.data; // Access data from queryResult.data.data
+  const { data, isLoading, isError } = query;
+  const record = data?.data;
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (isError) {
+    return <div>Something went wrong!</div>;
+  }
 
   return (
     <Show title="Notification Details">
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        <Typography variant="h5">{record?.title}</Typography>
-        <Typography variant="body1"><strong>notification Code:</strong> {record?.notification_code}</Typography>
-        <Typography variant="body1"><strong>version:</strong> {record?.version}</Typography>
-        <Typography variant="body1"><strong>priority:</strong> {record?.priority}</Typography>
-        <Typography variant="body1"><strong>type:</strong> {record?.type}</Typography>
-        <Typography variant="body1"><strong>title:</strong> {record?.title}</Typography>
-        <Typography variant="body1"><strong>body:</strong> {record?.body}</Typography>
-        <Typography variant="body1"><strong>is_active:</strong> {record?.is_active}</Typography>
-        <Typography variant="body2" color="text.secondary"><strong>Created At:</strong> {record?.created_at ? new Date(record.created_at).toLocaleString() : "N/A"}</Typography>
-        <Typography variant="body2" color="text.secondary"><strong>Updated At:</strong> {record?.updated_at ? new Date(record.updated_at).toLocaleString() : "N/A"}</Typography>
-        <Typography variant="body2" color="text.secondary"><strong>expiryDate:</strong> {record?.expiry_date ? new Date(record.expiry_date).toLocaleString() : "N/A"}</Typography>
-        <Typography variant="body2" color="text.secondary"><strong>dateTime:</strong> {record?.date_time ? new Date(record.date_time).toLocaleString() : "N/A"}</Typography>
+        <Typography>
+          <strong>Code:</strong> {record?.notification_code}
+        </Typography>
+
+        <Typography>
+          <strong>Version:</strong> {record?.version}
+        </Typography>
+
+        <Typography>
+          <strong>Priority:</strong> {record?.priority}
+        </Typography>
+
+        <Typography>
+          <strong>Type:</strong> {record?.type}
+        </Typography>
+
+        <Typography>
+          <strong>Title:</strong> {record?.title}
+        </Typography>
+
+        <Typography>
+          <strong>Body:</strong> {record?.body}
+        </Typography>
+
+        <Typography>
+          <strong>Active:</strong>{" "}
+          {record?.is_active ? "Yes" : "No"}
+        </Typography>
+
+        <Typography>
+          <strong>Event Date:</strong>{" "}
+          {record?.date_time
+            ? new Date(record.date_time).toLocaleString()
+            : "N/A"}
+        </Typography>
+
+        <Typography>
+          <strong>Expiry Date:</strong>{" "}
+          {record?.expiry_date
+            ? new Date(record.expiry_date).toLocaleString()
+            : "N/A"}
+        </Typography>
+
+        <Typography>
+          <strong>Created At:</strong>{" "}
+          {record?.created_at
+            ? new Date(record.created_at).toLocaleString()
+            : "N/A"}
+        </Typography>
+
+        <Typography>
+          <strong>Updated At:</strong>{" "}
+          {record?.updated_at
+            ? new Date(record.updated_at).toLocaleString()
+            : "N/A"}
+        </Typography>
       </Box>
     </Show>
   );

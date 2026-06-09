@@ -63,6 +63,7 @@ export const authProvider: AuthBindings = {
   getIdentity: async () => {
     const { data: authData, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !authData.user) {
+      console.log("getIdentity: No auth user found.");
       return null;
     }
 
@@ -73,21 +74,58 @@ export const authProvider: AuthBindings = {
       .single();
 
     if (profileError || !profile) {
-      console.error("Error fetching user profile for identity:", profileError);
+      console.error("getIdentity: Error fetching user profile:", profileError);
       return null;
     }
 
-    return {
+    console.log("getIdentity: Fetched profile:", profile);
+
+    const mergedIdentity = {
       ...authData.user,
       ...profile, // Merge profile data with auth user data
     };
+    console.log("getIdentity: Merged identity:", mergedIdentity);
+
+    return mergedIdentity;
   },
-  register: async ({ email, password }) => {
-    const { error } = await supabaseClient.auth.signUp({
+  register: async ({ email, password, full_name }) => { // Added full_name to params
+    const { data, error } = await supabaseClient.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: full_name, // Store full_name in user metadata
+        },
+      },
     });
-    if (error) return { success: false, error };
+
+    if (error) {
+      console.error("Register: Supabase auth.signUp error:", error);
+      return { success: false, error };
+    }
+
+    // After successful auth.signUp, create a profile entry in 'user_profiles' table
+    if (data.user) {
+      const { error: profileError } = await supabaseClient
+        .from("user_profiles")
+        .insert([
+          {
+            id: data.user.id,
+            email: data.user.email,
+            full_name: full_name, // Store full_name here
+            role: "USER", // Default role
+            status: "PENDING", // Default status
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+      if (profileError) {
+        console.error("Register: Error creating user profile in user_profiles table:", profileError);
+        // Optionally, you might want to roll back the auth.signUp or handle this error differently
+        return { success: false, error: profileError };
+      }
+    }
+
     return { success: true, redirectTo: "/login" };
   },
   forgotPassword: async ({ email }) => {

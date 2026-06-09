@@ -47,16 +47,7 @@ export const QuickActions: React.FC = () => {
               onClick={() => navigate("/notifications/create")}
               disabled={!isAdminOrSuperAdmin}
             >
-              + Send Notification
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant="contained"
-              onClick={() => navigate("/approvals")}
-              disabled={!isAdminOrSuperAdmin} // Assuming only admins can review approvals
-            >
-              Review Approvals
+              + Create Notification
             </Button>
           </Grid>
           {isSuperAdmin && (

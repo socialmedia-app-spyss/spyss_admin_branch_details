@@ -20,7 +20,7 @@ export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       }}
     >
       <img
-        src="/spyss-logo.svg" // Your desired icon
+        src="/patanjali_logo-removebg-preview.png" // Your desired icon
         alt="SPYSS Admin logo"
         style={{ height: "24px", minWidth: "24px" }}
       />

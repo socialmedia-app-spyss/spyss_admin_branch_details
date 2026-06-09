@@ -7,10 +7,12 @@ export const RegisterPage = () => {
   const { mutate: register } = useRegister();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState(""); // New state for full_name
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    register({ email, password });
+    // Pass full_name along with email and password
+    register({ email, password, full_name: fullName });
   };
 
   return (
@@ -31,11 +33,22 @@ export const RegisterPage = () => {
             margin="normal"
             required
             fullWidth
+            id="full-name"
+            label="Full Name"
+            name="full_name"
+            autoComplete="name"
+            autoFocus
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
             id="email"
             label="Email Address"
             name="email"
             autoComplete="email"
-            autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
