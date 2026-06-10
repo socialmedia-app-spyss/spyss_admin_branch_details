@@ -61,8 +61,6 @@ export const NotificationList = () => {
           <DeleteButton hideText recordItemId={row.id} />
         </Stack>
       ),
-      align: "center",
-      headerAlign: "center",
     },
   ];
 

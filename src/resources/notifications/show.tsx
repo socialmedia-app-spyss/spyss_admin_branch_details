@@ -4,8 +4,8 @@ import { Typography, Box } from "@mui/material";
 import { Notification } from "../../types/notification";
 
 export const NotificationShow = () => {
-  const { query } = useShow<Notification>(); // Corrected destructuring to queryResult
-  const { data, isLoading, isError } = query;
+  const { query } = useShow<Notification>(); // Changed queryResult to query
+  const { data, isLoading, isError } = query; // Changed queryResult to query
   const record = data?.data;
 
   if (isLoading) {

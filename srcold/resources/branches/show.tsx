@@ -1,1 +1,0 @@
-// Placeholder for src/resources/branches/show.tsx

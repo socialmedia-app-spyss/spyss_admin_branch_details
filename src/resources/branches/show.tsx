@@ -4,8 +4,17 @@ import { Typography, Box } from "@mui/material";
 import { Branch } from "../../types/branch";
 
 export const BranchShow = () => {
-  const { query } = useShow<Branch>(); // Corrected destructuring to queryResult
-  const record = query?.data?.data; // Access data from queryResult.data.data
+  const { query } = useShow<Branch>(); // Changed queryResult to query
+  const { data, isLoading, isError } = query; // Changed queryResult to query
+  const record = data?.data;
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (isError) {
+    return <div>Something went wrong!</div>;
+  }
 
   return (
     <Show title="Branch Details">

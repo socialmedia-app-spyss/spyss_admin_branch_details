@@ -1,13 +1,11 @@
 import { Edit } from "@refinedev/mui";
 import { useForm } from "@refinedev/react-hook-form";
+import { Controller } from "react-hook-form"; // Corrected import for Controller
 import { TextField, Switch, FormControlLabel, Select, MenuItem, InputLabel, FormControl, Box } from "@mui/material";
 import { Branch } from "../../types/branch"; // Import the Branch type
 
 export const BranchEdit = () => {
-  const { saveButtonProps, register, formState: { errors }, watch } = useForm<Branch>(); // Destructure watch
-
-  const is_active = watch("is_active"); // Watch the value of is_active
-  const batch = watch("batch"); // Watch the value of batch
+  const { saveButtonProps, register, formState: { errors }, control } = useForm<Branch>(); // Add control from useForm
 
   return (
     <Edit saveButtonProps={saveButtonProps}>
@@ -151,23 +149,42 @@ export const BranchEdit = () => {
 
         <FormControl fullWidth margin="normal" error={!!errors.batch}>
           <InputLabel id="batch-label">Batch</InputLabel>
-          <Select
-            labelId="batch-label"
-            {...register("batch", { required: "This field is required" })}
-            label="Batch"
-            value={batch || ""} // Explicitly set value from watch
-          >
-            <MenuItem value="MORNING">MORNING</MenuItem>
-            <MenuItem value="AFTERNOON">AFTERNOON</MenuItem>
-            <MenuItem value="EVENING">EVENING</MenuItem>
-          </Select>
+          <Controller
+            name="batch"
+            control={control}
+            rules={{ required: "This field is required" }}
+            render={({ field }) => (
+              <Select
+                {...field}
+                labelId="batch-label"
+                label="Batch"
+                value={field.value || ""} // Ensure value is a string
+              >
+                <MenuItem value="MORNING">MORNING</MenuItem>
+                <MenuItem value="AFTERNOON">AFTERNOON</MenuItem>
+                <MenuItem value="EVENING">EVENING</MenuItem>
+              </Select>
+            )}
+          />
           {errors.batch && <p style={{ color: 'red' }}>{String(errors.batch.message)}</p>}
         </FormControl>
 
-        <FormControlLabel
-          control={<Switch {...register("is_active")} checked={!!is_active} />} // Explicitly set checked from watch
-          label="Active"
-          sx={{ mt: 2 }}
+        <Controller
+          name="is_active"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Switch
+                  {...field}
+                  checked={!!field.value} // Ensure checked is a boolean
+                  onChange={(e) => field.onChange(e.target.checked)} // Pass boolean value
+                />
+              }
+              label="Active"
+              sx={{ mt: 2 }}
+            />
+          )}
         />
       </Box>
     </Edit>
