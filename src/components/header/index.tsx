@@ -19,8 +19,6 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
 
   const { data: user } = useGetIdentity<UserProfile>();
 
-  console.log("Header component: user identity data:", user);
-
   return (
     <AppBar position={sticky ? "sticky" : "relative"}>
       <Toolbar>

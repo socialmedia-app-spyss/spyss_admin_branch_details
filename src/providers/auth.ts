@@ -179,7 +179,7 @@ const authProvider: AuthProvider = {
     };
   },
   onError: async (error) => {
-    console.error(error);
+    // console.error(error); // Removed console.error
     return { error };
   },
   check: async () => {
