@@ -87,6 +87,9 @@ export const BranchEdit = () => {
           InputLabelProps={{
             shrink: true,
           }}
+          inputProps={{ // Added inputProps
+            step: "any",
+          }}
           error={!!errors.latitude}
           helperText={errors.latitude && String(errors.latitude.message)}
         />
@@ -98,6 +101,9 @@ export const BranchEdit = () => {
           type="number"
           InputLabelProps={{
             shrink: true,
+          }}
+          inputProps={{ // Added inputProps
+            step: "any",
           }}
           error={!!errors.longitude}
           helperText={errors.longitude && String(errors.longitude.message)}

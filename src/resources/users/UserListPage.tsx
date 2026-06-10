@@ -20,7 +20,6 @@ import { userService } from "../../services/userService";
 
 export const UserListPage = () => {
   const { data: currentUser } = useGetIdentity<UserProfile>();
-  console.log("UserListPage - currentUser:", currentUser); // Keep log
 
   const { tableQuery } = useTable<UserProfile>({ // Fix 1: Changed destructuring
     resource: "user_profiles",
@@ -34,9 +33,7 @@ export const UserListPage = () => {
     },
   });
 
-  console.log("UserListPage - useTable tableQuery object:", tableQuery); // Log the raw tableQuery object
   const users: UserProfile[] = tableQuery.data?.data ?? []; // Fix 1: Access data from tableQuery.data
-  console.log("UserListPage - Populated users array:", users); // Keep log
 
   const refresh = async () => {
     await tableQuery.refetch(); // Fix 1: Call refetch from tableQuery

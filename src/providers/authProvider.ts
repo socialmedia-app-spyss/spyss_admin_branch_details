@@ -62,7 +62,6 @@ export const authProvider = {
   getIdentity: async () => {
     const { data: authData, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !authData.user) {
-      console.log("getIdentity: No auth user found.");
       return null;
     }
 
@@ -77,13 +76,10 @@ export const authProvider = {
       return null;
     }
 
-    console.log("getIdentity: Fetched profile:", profile);
-
     const mergedIdentity = {
       ...authData.user,
       ...profile, // Merge profile data with auth user data
     };
-    console.log("getIdentity: Merged identity:", mergedIdentity);
 
     return mergedIdentity;
   },
@@ -146,7 +142,7 @@ export const authProvider = {
     // Default to allowing access if no specific rule is defined
     return { can: true };
   },
-  onError: async (error: Error) => { // Added type annotation to error
+  onError: async (error: Error) => {
     console.error("Auth Provider Error:", error);
     return { error };
   },
