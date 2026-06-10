@@ -44,7 +44,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage"; // Assuming you
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/spyss_admin_panel"> {/* Added basename prop */}
       {/* Removed GitHubBanner */}
       <RefineKbarProvider>
         <ColorModeContextProvider>
