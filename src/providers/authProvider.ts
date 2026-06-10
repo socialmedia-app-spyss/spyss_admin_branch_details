@@ -1,9 +1,8 @@
-import { AuthBindings } from "@refinedev/core";
 import { supabaseClient } from "../supabaseClient";
 import { UserProfile } from "../types/user"; // Import UserProfile type
 
-export const authProvider: AuthBindings = {
-  login: async ({ email, password }) => {
+export const authProvider = {
+  login: async ({ email, password }: { email: string; password: string }) => {
     const { error } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
@@ -43,8 +42,8 @@ export const authProvider: AuthBindings = {
     if (userProfile.status !== "ACTIVE") {
       return {
         authenticated: false,
-        redirectTo: "/access-denied", // Redirect to a specific access denied page
-        error: { message: "Your account is not active." },
+        redirectTo: "/access-denied",
+        // Removed error property as per Refine's AuthProvider expectation
       };
     }
 
@@ -53,7 +52,7 @@ export const authProvider: AuthBindings = {
       return {
         authenticated: false,
         redirectTo: "/access-denied",
-        error: { message: "You do not have sufficient permissions to access this panel." },
+        // Removed error property as per Refine's AuthProvider expectation
       };
     }
 
@@ -88,7 +87,7 @@ export const authProvider: AuthBindings = {
 
     return mergedIdentity;
   },
-  register: async ({ email, password, full_name }) => { // Added full_name to params
+  register: async ({ email, password, full_name }: { email: string; password: string; full_name: string }) => {
     const { data, error } = await supabaseClient.auth.signUp({
       email,
       password,
@@ -128,15 +127,14 @@ export const authProvider: AuthBindings = {
 
     return { success: true, redirectTo: "/login" };
   },
-  forgotPassword: async ({ email }) => {
+  forgotPassword: async ({ email }: { email: string }) => {
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/update-password`,
     });
     if (error) return { success: false, error };
     return { success: true };
   },
-  // Add the 'can' method for permission control
-  can: async ({ resource, action, params }) => {
+  can: async ({ resource, action: _action, params: _params }: { resource: string; action: string; params: any }) => {
     const identity = await authProvider.getIdentity();
     const userRole = (identity as UserProfile)?.role;
 
@@ -147,5 +145,9 @@ export const authProvider: AuthBindings = {
 
     // Default to allowing access if no specific rule is defined
     return { can: true };
+  },
+  onError: async (error: Error) => { // Added type annotation to error
+    console.error("Auth Provider Error:", error);
+    return { error };
   },
 };

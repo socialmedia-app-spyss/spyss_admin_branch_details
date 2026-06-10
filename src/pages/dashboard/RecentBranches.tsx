@@ -3,7 +3,7 @@ import { useList } from "@refinedev/core";
 import { Card, CardContent, Typography, CircularProgress, List, ListItem, ListItemText } from "@mui/material";
 
 export const RecentBranches: React.FC = () => {
-  const { data: branchesData, isLoading, isError } = useList({
+  const { query: { data: branchesData, isLoading, isError } } = useList({ // Corrected destructuring
     resource: "branches",
     pagination: {
       pageSize: 5,
@@ -48,7 +48,7 @@ export const RecentBranches: React.FC = () => {
           <List>
             {branches.map((branch: any) => (
               <ListItem key={branch.id}>
-                <ListItemText primary={branch.name} secondary={new Date(branch.created_at).toLocaleDateString()} />
+                <ListItemText primary={branch.branch_name} secondary={new Date(branch.created_at).toLocaleDateString()} /> {/* Changed to branch.branch_name */}
               </ListItem>
             ))}
           </List>

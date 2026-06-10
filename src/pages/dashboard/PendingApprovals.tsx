@@ -15,11 +15,11 @@ export const PendingApprovals: React.FC = () => {
   const { data: identity } = useGetIdentity<UserProfile>();
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
 
-  const { data: pendingUsersData, isLoading, isError } = useList({
+  const { query: { data: pendingUsersData, isLoading, isError } } = useList({ // Corrected destructuring
     resource: "user_profiles",
     filters: [{ field: "status", operator: "eq", value: "PENDING" }],
-    config: {
-      hasPagination: false,
+    pagination: { // Changed from hasPagination
+      mode: "off", // Equivalent to hasPagination: false
     },
     queryOptions: {
       enabled: isSuperAdmin, // Only fetch if the user is a SUPER_ADMIN

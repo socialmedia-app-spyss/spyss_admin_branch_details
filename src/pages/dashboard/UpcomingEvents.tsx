@@ -6,20 +6,20 @@ export const UpcomingEvents: React.FC = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Set to start of today for comparison
 
-  const { data: eventsData, isLoading, isError } = useList({
+  const { query: { data: eventsData, isLoading, isError } } = useList({ // Corrected destructuring
     resource: "events",
     pagination: {
       pageSize: 5,
     },
     sorters: [
       {
-        field: "start_date", // Assuming 'start_date' is the field for event date
+        field: "start_datetime", // Changed to 'start_datetime'
         order: "asc",
       },
     ],
     filters: [
       {
-        field: "start_date",
+        field: "start_datetime", // Changed to 'start_datetime'
         operator: "gte", // Greater than or equal to today
         value: today.toISOString(),
       },
@@ -59,8 +59,8 @@ export const UpcomingEvents: React.FC = () => {
             {events.map((event: any) => (
               <ListItem key={event.id}>
                 <ListItemText
-                  primary={event.name}
-                  secondary={new Date(event.start_date).toLocaleDateString("en-US", {
+                  primary={event.event_name} // Changed to event.event_name
+                  secondary={new Date(event.start_datetime).toLocaleDateString("en-US", { // Changed to event.start_datetime
                     month: "short",
                     day: "numeric",
                   })}

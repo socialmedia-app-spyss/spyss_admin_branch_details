@@ -54,8 +54,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               {mode === "dark" ? <LightModeOutlined /> : <DarkModeOutlined />}
             </IconButton>
 
-            {/* Optionally display avatar if available in UserProfile */}
-            {user?.avatar_url && <Avatar src={user.avatar_url} alt={user.full_name} />}
+            {/* Removed the Avatar component that was trying to use user.avatar_url */}
           </Stack>
         </Stack>
       </Toolbar>

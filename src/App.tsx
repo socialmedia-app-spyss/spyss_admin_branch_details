@@ -40,7 +40,7 @@ import { Authenticated } from "@refinedev/core";
 import { DashboardPage } from "./pages/dashboard/DashboardPage"; // Assuming you'll create this
 // import { SettingsPage } from "./pages/settings/SettingsPage"; // Removed SettingsPage import
 // import { RolesPage } from "./resources/settings/RolesPage"; // Removed RolesPage import
-// import { SystemConfig } from "./resources/settings/SystemConfig"; // Removed SystemConfig import
+// import { SystemConfig } from "./pages/settings/SystemConfig"; // Removed SystemConfig import
 
 function App() {
   return (
@@ -101,7 +101,7 @@ function App() {
                 {
                   name: "users", // Added users resource
                   list: "/users",
-                  can: "list", // Added can property to control visibility based on authProvider.can
+                  // Removed 'can' property as it's not a valid ResourceProps property
                 },
               ]}
             >
