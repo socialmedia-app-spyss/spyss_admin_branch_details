@@ -1,7 +1,7 @@
 import { Edit } from "@refinedev/mui";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller } from "react-hook-form";
-import { TextField, Box, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import { TextField, Box, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel, FormHelperText } from "@mui/material";
 import { Event } from "../../types/event";
 
 // Helper function to format date for datetime-local input
@@ -31,7 +31,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.event_name}
-          helperText={errors.event_name && String(errors.event_name.message)}
+          helperText={(errors.event_name && String(errors.event_name.message)) || "The name of the event. (Mandatory)"}
         />
 
         <TextField
@@ -45,7 +45,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.short_description}
-          helperText={errors.short_description && String(errors.short_description.message)}
+          helperText={(errors.short_description && String(errors.short_description.message)) || "A brief summary of the event. (Mandatory)"}
         />
 
         <TextField
@@ -59,7 +59,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.full_description}
-          helperText={errors.full_description && String(errors.full_description.message)}
+          helperText={(errors.full_description && String(errors.full_description.message)) || "A detailed description of the event. (Mandatory)"}
         />
 
         {/* Start Date & Time */}
@@ -77,7 +77,7 @@ export const EventEdit = () => {
               value={formatDateTimeLocal(field.value)}
               onChange={(e) => field.onChange(e.target.value === "" ? undefined : new Date(e.target.value).toISOString())}
               error={!!errors.start_datetime}
-              helperText={errors.start_datetime && String(errors.start_datetime.message)}
+              helperText={(errors.start_datetime && String(errors.start_datetime.message)) || "The date and time when the event begins. (Optional)"}
             />
           )}
         />
@@ -97,7 +97,7 @@ export const EventEdit = () => {
               value={formatDateTimeLocal(field.value)}
               onChange={(e) => field.onChange(e.target.value === "" ? undefined : new Date(e.target.value).toISOString())}
               error={!!errors.end_datetime}
-              helperText={errors.end_datetime && String(errors.end_datetime.message)}
+              helperText={(errors.end_datetime && String(errors.end_datetime.message)) || "The date and time when the event ends. (Optional)"}
             />
           )}
         />
@@ -111,7 +111,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.location}
-          helperText={errors.location && String(errors.location.message)}
+          helperText={(errors.location && String(errors.location.message)) || "The physical or virtual location of the event. (Mandatory)"}
         />
 
         <TextField
@@ -121,7 +121,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.registration_link}
-          helperText={errors.registration_link && String(errors.registration_link.message)}
+          helperText={(errors.registration_link && String(errors.registration_link.message)) || "A URL for event registration. (Optional)"}
         />
 
         <TextField
@@ -131,33 +131,30 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.image_url}
-          helperText={errors.image_url && String(errors.image_url.message)}
+          helperText={(errors.image_url && String(errors.image_url.message)) || "A URL for the event's image,a source image with dimensions like 1280x720px or 1920x1080px (Full HD) would be ideal. (Optional)"}
         />
 
-        {/* Active Select */}
+        {/* Active Switch */}
         <FormControl fullWidth margin="normal" error={!!errors.is_active}>
-          <InputLabel id="is-active-label">Active</InputLabel>
           <Controller
             name="is_active"
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                labelId="is-active-label"
+              <FormControlLabel
+                control={
+                  <Switch
+                    {...field}
+                    checked={!!field.value} // Ensure checked is a boolean
+                    onChange={(e) => field.onChange(e.target.checked)} // Pass boolean value
+                  />
+                }
                 label="Active"
-                value={field.value === true ? "true" : "false"}
-                onChange={(e) => field.onChange(e.target.value === "true")}
-              >
-                <MenuItem value="true">
-                  Active
-                </MenuItem>
-                <MenuItem value="false">
-                  Inactive
-                </MenuItem>
-              </Select>
+              />
             )}
           />
-          {errors.is_active && <p style={{ color: 'red' }}>{String(errors.is_active.message)}</p>}
+          <FormHelperText>
+            {(errors.is_active && String(errors.is_active.message)) || "Toggle to make the event active or inactive. (Optional)"}
+          </FormHelperText>
         </FormControl>
       </Box>
     </Edit>

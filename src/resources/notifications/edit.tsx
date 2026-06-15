@@ -1,8 +1,9 @@
 import { Edit } from "@refinedev/mui";
 import { useForm } from "@refinedev/react-hook-form";
-import { Controller } from "react-hook-form"; // Corrected import for Controller
-import { TextField, Box, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
-import { Notification } from "../../types/notification"; // Assuming you have a Notification type
+import { Controller } from "react-hook-form";
+import { TextField, Box, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel, FormHelperText } from "@mui/material";
+import { Notification } from "../../types/notification";
+// import { useState, useEffect } from "react"; // No longer needed for showDateTime
 
 // Helper function to format date for datetime-local input
 const formatDateTimeLocal = (dateString?: string | Date | null) => {
@@ -19,6 +20,15 @@ const formatDateTimeLocal = (dateString?: string | Date | null) => {
 export const NotificationEdit = () => {
   const { saveButtonProps, register, formState: { errors }, control } = useForm<Notification>();
 
+  // const initialDateTime = watch("date_time"); // No longer needed
+
+  // const [showDateTime, setShowDateTime] = useState(!!initialDateTime); // No longer needed
+
+  // Effect to update switch states if initial data changes (e.g., when loading a different notification)
+  // useEffect(() => {
+  //   setShowDateTime(!!initialDateTime);
+  // }, [initialDateTime]); // No longer needed
+
   return (
     <Edit saveButtonProps={saveButtonProps}>
       <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -29,7 +39,7 @@ export const NotificationEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.title}
-          helperText={errors.title && String(errors.title.message)}
+          helperText={(errors.title && String(errors.title.message)) || "The main heading or subject of the notification. (Mandatory)"}
         />
         <TextField
           {...register("body", { required: "Body is required" })}
@@ -40,7 +50,7 @@ export const NotificationEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.body}
-          helperText={errors.body && String(errors.body.message)}
+          helperText={(errors.body && String(errors.body.message)) || "The detailed content or message of the notification. (Mandatory)"}
         />
         <FormControl fullWidth margin="normal" error={!!errors.priority}>
           <InputLabel id="priority-label">Priority</InputLabel>
@@ -62,7 +72,9 @@ export const NotificationEdit = () => {
               </Select>
             )}
           />
-          {errors.priority && <p style={{ color: 'red' }}>{String(errors.priority.message)}</p>}
+          <FormHelperText>
+            {(errors.priority && String(errors.priority.message)) || "Indicates the urgency or importance of the notification. (Mandatory)"}
+          </FormHelperText>
         </FormControl>
         <FormControl fullWidth margin="normal" error={!!errors.type}>
           <InputLabel id="type-label">Type</InputLabel>
@@ -85,9 +97,12 @@ export const NotificationEdit = () => {
               </Select>
             )}
           />
-          {errors.type && <p style={{ color: 'red' }}>{String(errors.type.message)}</p>}
+          <FormHelperText>
+            {(errors.type && String(errors.type.message)) || "Categorizes the notification. (Mandatory)"}
+          </FormHelperText>
         </FormControl>
-        {/* Date Time */}
+
+        {/* Date Time Field (always visible) */}
         <Controller
           name="date_time"
           control={control}
@@ -100,13 +115,14 @@ export const NotificationEdit = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
               value={formatDateTimeLocal(field.value)}
-              onChange={(e) => field.onChange(e.target.value === "" ? undefined : new Date(e.target.value).toISOString())}
+              onChange={(e) => field.onChange(e.target.value === "" ? null : new Date(e.target.value).toISOString())}
               error={!!errors.date_time}
-              helperText={errors.date_time && String(errors.date_time.message)}
+              helperText={(errors.date_time && String(errors.date_time.message)) || "Specifies the exact date and time when the notification should be sent or become active. (Optional)"}
             />
           )}
         />
-        {/* Expiry Date */}
+
+        {/* Expiry Date Field (always visible) */}
         <Controller
           name="expiry_date"
           control={control}
@@ -119,31 +135,34 @@ export const NotificationEdit = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
               value={formatDateTimeLocal(field.value)}
-              onChange={(e) => field.onChange(e.target.value === "" ? undefined : new Date(e.target.value).toISOString())}
+              onChange={(e) => field.onChange(e.target.value === "" ? null : new Date(e.target.value).toISOString())}
               error={!!errors.expiry_date}
-              helperText={errors.expiry_date && String(errors.expiry_date.message)}
+              helperText={(errors.expiry_date && String(errors.expiry_date.message)) || "Sets the date and time after which the notification will no longer be active or displayed. (Optional)"}
             />
           )}
         />
+
+        {/* is_active Switch */}
         <FormControl fullWidth margin="normal" error={!!errors.is_active}>
-          <InputLabel id="is-active-label">Active</InputLabel>
           <Controller
             name="is_active"
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                labelId="is-active-label"
+              <FormControlLabel
+                control={
+                  <Switch
+                    {...field}
+                    checked={field.value === true} // Ensure boolean value for checked
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
                 label="Active"
-                value={field.value === true ? "true" : "false"}
-                onChange={(e) => field.onChange(e.target.value === "true")}
-              >
-                <MenuItem value="true">Active</MenuItem>
-                <MenuItem value="false">Inactive</MenuItem>
-              </Select>
+              />
             )}
           />
-          {errors.is_active && <p style={{ color: 'red' }}>{String(errors.is_active.message)}</p>}
+          <FormHelperText>
+            {(errors.is_active && String(errors.is_active.message)) || "A toggle to enable or disable the notification. (Optional)"}
+          </FormHelperText>
         </FormControl>
       </Box>
     </Edit>

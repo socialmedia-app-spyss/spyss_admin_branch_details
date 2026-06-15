@@ -1,10 +1,15 @@
 import { Create } from "@refinedev/mui";
 import { useForm } from "@refinedev/react-hook-form";
-import { TextField, Box, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import { TextField, Box, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel, FormHelperText } from "@mui/material";
 import { Event } from "../../types/event"; // Assuming you have an Event type
+import { Controller } from "react-hook-form"; // Import Controller
 
 export const EventCreate = () => {
-  const { saveButtonProps, register, formState: { errors } } = useForm<Event>();
+  const { saveButtonProps, register, formState: { errors }, control } = useForm<Event>({
+    defaultValues: {
+      is_active: true, // Default to active for create
+    }
+  });
 
   return (
     <Create saveButtonProps={saveButtonProps}>
@@ -16,7 +21,7 @@ export const EventCreate = () => {
           label="Event Name"
           fullWidth
           error={!!errors.event_name}
-          helperText={errors.event_name && String(errors.event_name.message)}
+          helperText={(errors.event_name && String(errors.event_name.message)) || "The name of the event. (Mandatory)"}
         />
 
         <TextField
@@ -28,7 +33,7 @@ export const EventCreate = () => {
           rows={2}
           fullWidth
           error={!!errors.short_description}
-          helperText={errors.short_description && String(errors.short_description.message)}
+          helperText={(errors.short_description && String(errors.short_description.message)) || "A brief summary of the event. (Mandatory)"}
         />
 
         <TextField
@@ -40,7 +45,7 @@ export const EventCreate = () => {
           rows={6}
           fullWidth
           error={!!errors.full_description}
-          helperText={errors.full_description && String(errors.full_description.message)}
+          helperText={(errors.full_description && String(errors.full_description.message)) || "A detailed description of the event. (Mandatory)"}
         />
 
         <TextField
@@ -50,7 +55,7 @@ export const EventCreate = () => {
           fullWidth
           InputLabelProps={{ shrink: true }}
           error={!!errors.start_datetime}
-          helperText={errors.start_datetime && String(errors.start_datetime.message)}
+          helperText={(errors.start_datetime && String(errors.start_datetime.message)) || "The date and time when the event begins. (Optional)"}
         />
 
         <TextField
@@ -60,7 +65,7 @@ export const EventCreate = () => {
           fullWidth
           InputLabelProps={{ shrink: true }}
           error={!!errors.end_datetime}
-          helperText={errors.end_datetime && String(errors.end_datetime.message)}
+          helperText={(errors.end_datetime && String(errors.end_datetime.message)) || "The date and time when the event ends. (Optional)"}
         />
 
         <TextField
@@ -70,7 +75,7 @@ export const EventCreate = () => {
           label="Location"
           fullWidth
           error={!!errors.location}
-          helperText={errors.location && String(errors.location.message)}
+          helperText={(errors.location && String(errors.location.message)) || "The physical or virtual location of the event. (Mandatory)"}
         />
 
         <TextField
@@ -78,7 +83,7 @@ export const EventCreate = () => {
           label="Registration Link"
           fullWidth
           error={!!errors.registration_link}
-          helperText={errors.registration_link && String(errors.registration_link.message)}
+          helperText={(errors.registration_link && String(errors.registration_link.message)) || "A URL for event registration. (Optional)"}
         />
 
         <TextField
@@ -86,26 +91,30 @@ export const EventCreate = () => {
           label="Image URL"
           fullWidth
           error={!!errors.image_url}
-          helperText={errors.image_url && String(errors.image_url.message)}
+          helperText={(errors.image_url && String(errors.image_url.message)) || "A URL for the event's image, a source image with dimensions like 1280x720px or 1920x1080px (Full HD) would be ideal. (Optional)"}
         />
 
-        <FormControl fullWidth error={!!errors.is_active}>
-          <InputLabel id="is-active-label">Active</InputLabel>
-          <Select
-            labelId="is-active-label"
-            defaultValue="true"
-            {...register("is_active")}
-            label="Active"
-          >
-            <MenuItem value="true">
-              Active
-            </MenuItem>
-
-            <MenuItem value="false">
-              Inactive
-            </MenuItem>
-          </Select>
-          {errors.is_active && <p style={{ color: 'red' }}>{String(errors.is_active.message)}</p>}
+        {/* Active Switch */}
+        <FormControl fullWidth margin="normal" error={!!errors.is_active}>
+          <Controller
+            name="is_active"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Switch
+                    {...field}
+                    checked={field.value === true} // Ensure boolean value for checked
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label="Active"
+              />
+            )}
+          />
+          <FormHelperText>
+            {(errors.is_active && String(errors.is_active.message)) || "Toggle to make the event active or inactive. (Optional)"}
+          </FormHelperText>
         </FormControl>
       </Box>
     </Create>
