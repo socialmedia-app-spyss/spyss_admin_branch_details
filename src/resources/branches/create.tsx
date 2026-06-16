@@ -285,7 +285,7 @@ export const BranchCreate = () => {
             <TextField
               {...register("class_timings", {
                 required: "Class Timings is required",
-                validate: (value) => {
+                validate: () => {
                   if (!startHour || !startMinute || !startAmPm || !endHour || !endMinute || !endAmPm) {
                     return "All start and end time components must be selected.";
                   }
