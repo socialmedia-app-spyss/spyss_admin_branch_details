@@ -87,14 +87,14 @@ export const BranchCreate = () => {
       <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
           {...register("branch_name", { required: "This field is required" })}
-          label="Branch Name"
+          label="Branch Name *"
           fullWidth
           error={!!errors.branch_name}
           helperText={(errors.branch_name && String(errors.branch_name.message)) || "The name of the branch. (Mandatory)"}
         />
         <TextField
           {...register("address", { required: "This field is required" })}
-          label="Address"
+          label="Address *"
           fullWidth
           error={!!errors.address}
           helperText={(errors.address && String(errors.address.message)) || "The full address of the branch. (Mandatory)"}
@@ -105,7 +105,7 @@ export const BranchCreate = () => {
             minLength: { value: 2, message: "Minimum 2 characters" },
             maxLength: { value: 30, message: "Maximum 30 characters" },
           })}
-          label="Country Code/Name"
+          label="Country Code/Name *"
           fullWidth
           error={!!errors.country_code_or_name}
           helperText={(errors.country_code_or_name && String(errors.country_code_or_name.message)) || "The country code or name where the branch is located (2-30 characters). (Mandatory)"}
@@ -116,7 +116,7 @@ export const BranchCreate = () => {
             minLength: { value: 2, message: "Minimum 2 characters" },
             maxLength: { value: 30, message: "Maximum 30 characters" },
           })}
-          label="Admin Level 1 (State)"
+          label="Admin Level 1 (State) *"
           fullWidth
           error={!!errors.admin_level_1}
           helperText={(errors.admin_level_1 && String(errors.admin_level_1.message)) || "The state or first-level administrative division (2-30 characters). (Mandatory)"}
@@ -127,7 +127,7 @@ export const BranchCreate = () => {
             minLength: { value: 2, message: "Minimum 2 characters" },
             maxLength: { value: 30, message: "Maximum 30 characters" },
           })}
-          label="City"
+          label="City *"
           fullWidth
           error={!!errors.city}
           helperText={(errors.city && String(errors.city.message)) || "The city where the branch is located (2-30 characters). (Mandatory)"}
@@ -138,7 +138,7 @@ export const BranchCreate = () => {
             minLength: { value: 2, message: "Minimum 2 characters" },
             maxLength: { value: 30, message: "Maximum 30 characters" },
           })}
-          label="Admin Level 3 (Area)"
+          label="Admin Level 3 (Area) *"
           fullWidth
           error={!!errors.admin_level_3}
           helperText={(errors.admin_level_3 && String(errors.admin_level_3.message)) || "The area or third-level administrative division (2-30 characters). (Mandatory)"}
@@ -150,7 +150,7 @@ export const BranchCreate = () => {
             validate: (value) =>
               (value >= -90 && value <= 90) || "Latitude must be between -90 and 90",
           })}
-          label="Latitude"
+          label="Latitude *"
           fullWidth
           type="number"
           error={!!errors.latitude}
@@ -163,7 +163,7 @@ export const BranchCreate = () => {
             validate: (value) =>
               (value >= -180 && value <= 180) || "Longitude must be between -180 and 180",
           })}
-          label="Longitude"
+          label="Longitude *"
           fullWidth
           type="number"
           error={!!errors.longitude}
@@ -171,17 +171,20 @@ export const BranchCreate = () => {
         />
         <TextField
           {...register("mukhyashikshak_name", { required: "This field is required" })}
-          label="Mukhyashikshak Name"
+          label="Mukhyashikshak Name *"
           fullWidth
           error={!!errors.mukhyashikshak_name}
           helperText={(errors.mukhyashikshak_name && String(errors.mukhyashikshak_name.message)) || "The name of the Mukhyashikshak for this branch. (Mandatory)"}
         />
         <TextField
-          {...register("contact_no", { required: "This field is required" })}
-          label="Contact No"
+          {...register("contact_no", {
+            required: "This field is required",
+            minLength: { value: 10, message: "Contact number must be at least 10 digits" },
+          })}
+          label="Contact No *"
           fullWidth
           error={!!errors.contact_no}
-          helperText={(errors.contact_no && String(errors.contact_no.message)) || "The contact number for the branch. (Mandatory)"}
+          helperText={(errors.contact_no && String(errors.contact_no.message)) || "The contact number for the branch (minimum 10 digits). (Mandatory)"}
         />
         
         {/* Category Select */}
@@ -298,7 +301,7 @@ export const BranchCreate = () => {
                   return true;
                 }
               })}
-              label="Final Class Timings"
+              label="Final Class Timings *"
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}

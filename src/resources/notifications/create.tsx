@@ -30,7 +30,7 @@ export const NotificationCreate = () => {
       <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
           {...register("title", { required: "Title is required" })}
-          label="Title"
+          label="Title *"
           fullWidth
           margin="normal"
           error={!!errors.title}
@@ -38,7 +38,7 @@ export const NotificationCreate = () => {
         />
         <TextField
           {...register("body", { required: "Body is required" })}
-          label="Body"
+          label="Body *"
           multiline
           rows={4}
           fullWidth
@@ -47,7 +47,7 @@ export const NotificationCreate = () => {
           helperText={(errors.body && String(errors.body.message)) || "The detailed content or message of the notification. (Mandatory)"}
         />
         <FormControl fullWidth margin="normal" error={!!errors.priority}>
-          <InputLabel id="priority-label">Priority</InputLabel>
+          <InputLabel id="priority-label">Priority *</InputLabel>
           <Controller
             name="priority"
             control={control}
@@ -56,7 +56,7 @@ export const NotificationCreate = () => {
               <Select
                 {...field}
                 labelId="priority-label"
-                label="Priority"
+                label="Priority *"
                 value={field.value || ""}
               >
                 <MenuItem value="LOW">LOW</MenuItem>
@@ -71,7 +71,7 @@ export const NotificationCreate = () => {
           </FormHelperText>
         </FormControl>
         <FormControl fullWidth margin="normal" error={!!errors.type}>
-          <InputLabel id="type-label">Type</InputLabel>
+          <InputLabel id="type-label">Type *</InputLabel>
           <Controller
             name="type"
             control={control}
@@ -80,7 +80,7 @@ export const NotificationCreate = () => {
               <Select
                 {...field}
                 labelId="type-label"
-                label="Type"
+                label="Type *"
                 value={field.value || ""}
               >
                 <MenuItem value="GENERAL">GENERAL</MenuItem>

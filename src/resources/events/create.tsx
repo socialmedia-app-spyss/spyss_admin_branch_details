@@ -18,7 +18,7 @@ export const EventCreate = () => {
           {...register("event_name", {
             required: "Event Name is required",
           })}
-          label="Event Name"
+          label="Event Name *"
           fullWidth
           error={!!errors.event_name}
           helperText={(errors.event_name && String(errors.event_name.message)) || "The name of the event. (Mandatory)"}
@@ -28,7 +28,7 @@ export const EventCreate = () => {
           {...register("short_description", {
             required: "Short Description is required",
           })}
-          label="Short Description"
+          label="Short Description *"
           multiline
           rows={2}
           fullWidth
@@ -40,7 +40,7 @@ export const EventCreate = () => {
           {...register("full_description", {
             required: "Full Description is required",
           })}
-          label="Full Description"
+          label="Full Description *"
           multiline
           rows={6}
           fullWidth
@@ -72,7 +72,7 @@ export const EventCreate = () => {
           {...register("location", {
             required: "Location is required",
           })}
-          label="Location"
+          label="Location *"
           fullWidth
           error={!!errors.location}
           helperText={(errors.location && String(errors.location.message)) || "The physical or virtual location of the event. (Mandatory)"}

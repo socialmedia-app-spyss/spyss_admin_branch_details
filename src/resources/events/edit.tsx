@@ -26,7 +26,7 @@ export const EventEdit = () => {
           {...register("event_name", {
             required: "Event Name is required",
           })}
-          label="Event Name"
+          label="Event Name *"
           fullWidth
           margin="normal"
           InputLabelProps={{ shrink: true }}
@@ -38,7 +38,7 @@ export const EventEdit = () => {
           {...register("short_description", {
             required: "Short Description is required",
           })}
-          label="Short Description"
+          label="Short Description *"
           multiline
           rows={2}
           fullWidth
@@ -52,7 +52,7 @@ export const EventEdit = () => {
           {...register("full_description", {
             required: "Full Description is required",
           })}
-          label="Full Description"
+          label="Full Description *"
           multiline
           rows={6}
           fullWidth
@@ -106,7 +106,7 @@ export const EventEdit = () => {
           {...register("location", {
             required: "Location is required",
           })}
-          label="Location"
+          label="Location *"
           fullWidth
           margin="normal"
           InputLabelProps={{ shrink: true }}
