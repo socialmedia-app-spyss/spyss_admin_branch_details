@@ -1,7 +1,7 @@
 import { Edit } from "@refinedev/mui";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller } from "react-hook-form";
-import { TextField, Box, Select, MenuItem, FormControl, InputLabel, Switch, FormControlLabel, FormHelperText } from "@mui/material";
+import { TextField, Box, FormControl, Switch, FormControlLabel, FormHelperText } from "@mui/material";
 import { Event } from "../../types/event";
 
 // Helper function to format date for datetime-local input
@@ -18,6 +18,12 @@ const formatDateTimeLocal = (dateString?: string | Date | null) => {
 
 export const EventEdit = () => {
   const { saveButtonProps, register, formState: { errors }, control } = useForm<Event>();
+
+  const validateWordCount = (minWords: number, message: string) => (value: string) => {
+    if (!value) return message;
+    const words = value.trim().split(/\s+/).filter(word => word.length > 0);
+    return words.length >= minWords || message;
+  };
 
   return (
     <Edit saveButtonProps={saveButtonProps}>
@@ -37,6 +43,7 @@ export const EventEdit = () => {
         <TextField
           {...register("short_description", {
             required: "Short Description is required",
+            validate: validateWordCount(10, "Short Description must be at least 10 words"),
           })}
           label="Short Description *"
           multiline
@@ -45,12 +52,13 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.short_description}
-          helperText={(errors.short_description && String(errors.short_description.message)) || "A brief summary of the event. (Mandatory)"}
+          helperText={(errors.short_description && String(errors.short_description.message)) || "A brief summary of the event (minimum 10 words). (Mandatory)"}
         />
 
         <TextField
           {...register("full_description", {
             required: "Full Description is required",
+            validate: validateWordCount(50, "Full Description must be at least 50 words"),
           })}
           label="Full Description *"
           multiline
@@ -59,7 +67,7 @@ export const EventEdit = () => {
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.full_description}
-          helperText={(errors.full_description && String(errors.full_description.message)) || "A detailed description of the event. (Mandatory)"}
+          helperText={(errors.full_description && String(errors.full_description.message)) || "A detailed description of the event (minimum 50 words). (Mandatory)"}
         />
 
         {/* Start Date & Time */}
