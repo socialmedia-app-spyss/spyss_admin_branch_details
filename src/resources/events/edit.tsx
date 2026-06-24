@@ -133,13 +133,15 @@ export const EventEdit = () => {
         />
 
         <TextField
-          {...register("image_url")}
-          label="Image URL"
+          {...register("image_url", {
+            required: "Image URL is required",
+          })}
+          label="Image URL *"
           fullWidth
           margin="normal"
           InputLabelProps={{ shrink: true }}
           error={!!errors.image_url}
-          helperText={(errors.image_url && String(errors.image_url.message)) || "A URL for the event's image,a source image with dimensions like 1280x720px or 1920x1080px (Full HD) would be ideal. (Optional)"}
+          helperText={(errors.image_url && String(errors.image_url.message)) || "A URL for the event's image,a source image with dimensions like 1280x720px or 1920x1080px (Full HD) would be ideal. (Mandatory)"}
         />
 
         {/* Active Switch */}
