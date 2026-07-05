@@ -43,7 +43,8 @@
   },
   "scripts": {
     "dev": "refine dev",
-    "build": "tsc && refine build",
+    "build": "tsc && refine build && npm run build:gh-pages-fallback",
+    "build:gh-pages-fallback": "node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
     "start": "refine start",
     "refine": "refine",
     "deploy": "npm run build && gh-pages -d dist"

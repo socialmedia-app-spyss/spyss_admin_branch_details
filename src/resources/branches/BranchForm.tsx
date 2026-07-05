@@ -68,7 +68,7 @@ const emptyOptions: MasterOptions = {
   mediums: [],
 };
 
-const hours = Array.from({ length: 13 }, (_, i) => i.toString().padStart(2, "0"));
+const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0"));
 const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0"));
 const ampm = ["AM", "PM"];
 export const classDayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -265,12 +265,12 @@ export const BranchForm = ({
   initialClassTimings,
 }: BranchFormProps) => {
   const [options, setOptions] = useState<MasterOptions>(emptyOptions);
-  const [startHour, setStartHour] = useState(applyDefaults ? "00" : "");
-  const [startMinute, setStartMinute] = useState(applyDefaults ? "00" : "");
-  const [startAmPm, setStartAmPm] = useState(applyDefaults ? "AM" : "");
-  const [endHour, setEndHour] = useState(applyDefaults ? "00" : "");
-  const [endMinute, setEndMinute] = useState(applyDefaults ? "00" : "");
-  const [endAmPm, setEndAmPm] = useState(applyDefaults ? "AM" : "");
+  const [startHour, setStartHour] = useState("");
+  const [startMinute, setStartMinute] = useState("");
+  const [startAmPm, setStartAmPm] = useState("");
+  const [endHour, setEndHour] = useState("");
+  const [endMinute, setEndMinute] = useState("");
+  const [endAmPm, setEndAmPm] = useState("");
   const [valayaOptions, setValayaOptions] = useState<ValayaOption[]>([]);
   const [selectedValayaCode, setSelectedValayaCode] = useState("");
   const [isFetchingLatLng, setIsFetchingLatLng] = useState(false);
@@ -608,6 +608,7 @@ export const BranchForm = ({
                   value={field.value || ""}
                   onChange={(event) => {
                     field.onChange(event);
+                    setSelectedValayaCode("");
                     setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
                     setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
                   }}
@@ -642,6 +643,7 @@ export const BranchForm = ({
                   onChange={(event) => {
                     const districtId = event.target.value;
                     field.onChange(districtId);
+                    setValue("district_id", districtId, { shouldDirty: true, shouldValidate: true });
                     const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, districtId);
                     setValue("valaya_id", matchingValayaId ?? "", { shouldDirty: true, shouldValidate: true });
                   }}
@@ -666,8 +668,8 @@ export const BranchForm = ({
               name="valaya_id"
               control={control}
               rules={{
-                validate: () =>
-                  Boolean(selectedValayaCode && selectedValayaId) ||
+                validate: (value) =>
+                  Boolean(selectedValayaCode && value) ||
                   "Select a Valaya and district combination.",
               }}
               render={() => (
