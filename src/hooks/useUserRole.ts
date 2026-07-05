@@ -2,12 +2,19 @@ import { UserProfile } from "../types/user"; // Import UserProfile type
 
 export const useUserRole = () => {
   const getRoleAccess = (profile: UserProfile) => {
-    const isActive = profile.status === "ACTIVE";
+    const isApproved = profile.status === "APPROVED" && profile.is_active;
+    const adminRoles: Array<UserProfile["role"]> = [
+      "SUPER_ADMIN",
+      "STATE_ADMIN",
+      "DISTRICT_ADMIN",
+      "VALAYA_ADMIN",
+      "BRANCH_ADMIN",
+    ];
 
     return {
-      isAdmin: (profile.role === "ADMIN" || profile.role === "SUPER_ADMIN") && isActive,
-      isSuperAdmin: profile.role === "SUPER_ADMIN" && isActive,
-      isUserBlocked: profile.role === "USER" || !isActive,
+      isAdmin: adminRoles.includes(profile.role) && isApproved,
+      isSuperAdmin: profile.role === "SUPER_ADMIN" && isApproved,
+      isUserBlocked: profile.role === "USER" || !isApproved,
       // Add more specific checks as needed
     };
   };

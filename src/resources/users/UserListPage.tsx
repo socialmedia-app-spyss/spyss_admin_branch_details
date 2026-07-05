@@ -13,9 +13,12 @@ import {
   Button,
   Box,
   Typography,
+  FormControl,
+  MenuItem,
+  Select,
 } from "@mui/material";
 
-import { UserProfile } from "../../types/user";
+import { UserProfile, userStatusOptions } from "../../types/user";
 import { userService } from "../../services/userService";
 
 export const UserListPage = () => {
@@ -39,8 +42,17 @@ export const UserListPage = () => {
     await tableQuery.refetch(); // Fix 1: Call refetch from tableQuery
   };
 
-  const handleAction = async (action: () => Promise<unknown>) => { // Fix 3: Updated Promise type
-    await action();
+  const handleAction = async (action: () => Promise<{ error: Error | null } | unknown>) => { // Fix 3: Updated Promise type
+    const result = await action();
+    if (
+      result &&
+      typeof result === "object" &&
+      "error" in result &&
+      result.error
+    ) {
+      window.alert(String((result.error as { message?: unknown }).message || "Action failed."));
+      return;
+    }
     await refresh(); // Ensure refresh is awaited
   };
 
@@ -63,7 +75,28 @@ export const UserListPage = () => {
               <TableRow key={u.id}>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>{u.role}</TableCell>
-                <TableCell>{u.status}</TableCell>
+                <TableCell>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={u.status}
+                      onChange={(event) =>
+                        handleAction(() =>
+                          userService.updateStatus(
+                            u.id,
+                            event.target.value as UserProfile["status"],
+                            currentUser?.id,
+                          )
+                        )
+                      }
+                    >
+                      {userStatusOptions.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </TableCell>
                 <TableCell>
                   {new Date(u.created_at).toLocaleDateString()}
                 </TableCell>
@@ -101,18 +134,18 @@ export const UserListPage = () => {
                   )}
 
                   {/* ROLE MANAGEMENT */}
-                  {u.role === "USER" && u.status === "ACTIVE" && (
+                  {u.role === "USER" && u.status === "APPROVED" && (
                     <Button
                       size="small"
                       onClick={() =>
                         handleAction(() => userService.makeAdmin(u.id))
                       }
                     >
-                      Make Admin
+                      Make Super Admin
                     </Button>
                   )}
 
-                  {u.role === "ADMIN" && (
+                  {u.role !== "USER" && u.role !== "SUPER_ADMIN" && (
                     <Button
                       size="small"
                       color="warning"

@@ -1,26 +1,56 @@
 import { List, useDataGrid, EditButton, DeleteButton, ShowButton } from "@refinedev/mui";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-import { Branch } from "../../types/branch";
+import { BranchWithMasters } from "../../types/branch";
 import { Stack } from "@mui/material";
 
 export const BranchList = () => {
-  const { dataGridProps } = useDataGrid<Branch>({
-    resource: "branches",
+  const { dataGridProps } = useDataGrid<BranchWithMasters>({
+    resource: "latest_branches",
+    meta: {
+      select:
+        "*, master_categories(category_name), master_batches(batch_name), master_states(state_name), master_districts(district_name), master_valayas(valaya_name), master_branch_statuses(status_name)",
+    },
   });
 
-  const columns: GridColDef<Branch>[] = [
+  const columns: GridColDef<BranchWithMasters>[] = [
     { field: "id", headerName: "ID", width: 80 },
     { field: "branch_name", headerName: "Branch Name", flex: 1 },
-    { field: "city", headerName: "City", flex: 1 },
-    { field: "admin_level_1", headerName: "State", flex: 1 }, // State
-    { field: "category", headerName: "Category", flex: 1 },
-    { field: "batch", headerName: "Batch", width: 120 },
-    { field: "contact_no", headerName: "Contact", flex: 1 },
     {
-      field: "is_active",
-      headerName: "Active",
-      width: 100,
-      valueGetter: (_, row) => (row.is_active ? "Yes" : "No"),
+      field: "master_states",
+      headerName: "State",
+      flex: 1,
+      valueGetter: (_, row) => row.master_states?.state_name ?? "",
+    },
+    {
+      field: "master_districts",
+      headerName: "District",
+      flex: 1,
+      valueGetter: (_, row) => row.master_districts?.district_name ?? "",
+    },
+    {
+      field: "master_valayas",
+      headerName: "Valaya",
+      flex: 1,
+      valueGetter: (_, row) => row.master_valayas?.valaya_name ?? "",
+    },
+    {
+      field: "master_categories",
+      headerName: "Category",
+      flex: 1,
+      valueGetter: (_, row) => row.master_categories?.category_name ?? "",
+    },
+    {
+      field: "master_batches",
+      headerName: "Batch",
+      width: 120,
+      valueGetter: (_, row) => row.master_batches?.batch_name ?? "",
+    },
+    { field: "contact_number", headerName: "Contact", flex: 1 },
+    {
+      field: "master_branch_statuses",
+      headerName: "Status",
+      width: 120,
+      valueGetter: (_, row) => row.master_branch_statuses?.status_name ?? "",
     },
     {
       field: "actions",

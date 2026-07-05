@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 interface UserProfile {
   id: string;
   email: string;
-  role: "USER" | "ADMIN" | "SUPER_ADMIN";
-  status: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+  role: "SUPER_ADMIN" | "STATE_ADMIN" | "DISTRICT_ADMIN" | "VALAYA_ADMIN" | "BRANCH_ADMIN" | "USER";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 }
 
 export const PendingApprovals: React.FC = () => {

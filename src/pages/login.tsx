@@ -1,15 +1,39 @@
 import { useLogin } from "@refinedev/core";
 import { Box, TextField, Button, Typography, Container } from "@mui/material";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const LoginPage = () => {
-  const { mutate: login } = useLogin();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [loginError, setLoginError] = useState("");
+  const { mutate: login, isPending } = useLogin<{ email: string; password: string }>({
+    mutationOptions: {
+      onSuccess: async ({ success, error }) => {
+        if (!success) {
+          setLoginError(error?.message || "Invalid email or password");
+          return;
+        }
+
+        setLoginError("");
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        navigate("/dashboard", { replace: true });
+      },
+      onError: (error) => {
+        setLoginError(error.message || "Invalid email or password");
+      },
+    },
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (isPending) {
+      return;
+    }
+    setLoginError("");
     login({ email, password });
   };
 
@@ -51,13 +75,19 @@ export const LoginPage = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          {loginError && (
+            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+              {loginError}
+            </Typography>
+          )}
           <Button
             type="submit"
             fullWidth
             variant="contained"
+            disabled={isPending}
             sx={{ mt: 3, mb: 2 }}
           >
-            Sign In
+            {isPending ? "Signing In..." : "Sign In"}
           </Button>
           <Link to="/register" style={{ textDecoration: 'none' }}>
             <Button fullWidth variant="outlined">

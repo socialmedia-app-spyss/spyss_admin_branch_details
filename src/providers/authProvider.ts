@@ -10,7 +10,7 @@ export const authProvider = {
 
     if (error) return { success: false, error };
 
-    return { success: true, redirectTo: "/" };
+    return { success: true, redirectTo: "/dashboard" };
   },
 
   logout: async () => {
@@ -39,7 +39,7 @@ export const authProvider = {
     // Type assertion for profile
     const userProfile = profile as UserProfile;
 
-    if (userProfile.status !== "ACTIVE") {
+    if (userProfile.status !== "APPROVED" || !userProfile.is_active) {
       return {
         authenticated: false,
         redirectTo: "/access-denied",
@@ -47,7 +47,6 @@ export const authProvider = {
       };
     }
 
-    // Example: Deny access to regular 'USER' role for the admin panel
     if (userProfile.role === "USER") {
       return {
         authenticated: false,

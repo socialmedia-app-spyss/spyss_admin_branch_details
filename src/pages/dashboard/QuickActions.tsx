@@ -6,14 +6,19 @@ import { useGetIdentity } from "@refinedev/core";
 interface UserProfile {
   id: string;
   email: string;
-  role: "USER" | "ADMIN" | "SUPER_ADMIN";
-  status: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+  role: "SUPER_ADMIN" | "STATE_ADMIN" | "DISTRICT_ADMIN" | "VALAYA_ADMIN" | "BRANCH_ADMIN" | "USER";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 }
 
 export const QuickActions: React.FC = () => {
   const navigate = useNavigate();
   const { data: identity } = useGetIdentity<UserProfile>();
-  const isAdminOrSuperAdmin = identity?.role === "ADMIN" || identity?.role === "SUPER_ADMIN";
+  const isAdminOrSuperAdmin =
+    identity?.role === "SUPER_ADMIN" ||
+    identity?.role === "STATE_ADMIN" ||
+    identity?.role === "DISTRICT_ADMIN" ||
+    identity?.role === "VALAYA_ADMIN" ||
+    identity?.role === "BRANCH_ADMIN";
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
 
   return (
@@ -32,29 +37,11 @@ export const QuickActions: React.FC = () => {
               + Create Branch
             </Button>
           </Grid>
-          <Grid item>
-            <Button
-              variant="contained"
-              onClick={() => navigate("/events/create")}
-              disabled={!isAdminOrSuperAdmin}
-            >
-              + Create Event
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant="contained"
-              onClick={() => navigate("/notifications/create")}
-              disabled={!isAdminOrSuperAdmin}
-            >
-              + Create Notification
-            </Button>
-          </Grid>
           {isSuperAdmin && (
             <Grid item>
               <Button
                 variant="contained"
-                onClick={() => navigate("/users")} // Updated route to /users
+                onClick={() => navigate("/users")}
               >
                 Manage Admin Users
               </Button>

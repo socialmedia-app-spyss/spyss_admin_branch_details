@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "homepage": "https://socialmedia-app-spyss.github.io/spyss_admin_panel",
+  "homepage": "https://socialmedia-app-spyss.github.io/spyss_admin_branch_details",
   "dependencies": {
     "@emotion/react": "^11.8.2",
     "@emotion/styled": "^11.8.1",

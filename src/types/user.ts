@@ -1,11 +1,32 @@
+export type UserRole =
+  | "SUPER_ADMIN"
+  | "STATE_ADMIN"
+  | "DISTRICT_ADMIN"
+  | "VALAYA_ADMIN"
+  | "BRANCH_ADMIN"
+  | "USER";
+
+export type UserStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+
+export const userStatusOptions: UserStatus[] = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"];
+
 export interface UserProfile {
   id: string; // uuid
   email: string;
-  full_name?: string; // null in schema
-  role: "USER" | "ADMIN" | "SUPER_ADMIN";
-  status: "PENDING" | "ACTIVE" | "REJECTED"; // Based on schema, 'SUSPENDED' is not present
+  full_name: string;
+  phone_number?: string | null;
+  role: UserRole;
+  status: UserStatus;
+  state_id?: string | null;
+  district_id?: string | null;
+  valaya_id?: string | null;
+  branch_id?: string | null;
+  display_order: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
-  approved_by?: string; // uuid, null in schema
-  approved_at?: string; // null in schema
+  approved_by?: string | null;
+  approved_at?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
 }

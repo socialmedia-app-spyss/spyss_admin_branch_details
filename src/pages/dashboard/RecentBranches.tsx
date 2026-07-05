@@ -4,7 +4,7 @@ import { Card, CardContent, Typography, CircularProgress, List, ListItem, ListIt
 
 export const RecentBranches: React.FC = () => {
   const { query: { data: branchesData, isLoading, isError } } = useList({ // Corrected destructuring
-    resource: "branches",
+    resource: "latest_branches",
     pagination: {
       pageSize: 5,
     },

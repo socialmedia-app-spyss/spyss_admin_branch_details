@@ -8,7 +8,7 @@ export const DashboardStats: React.FC = () => {
 
   // Fetch Branches
   const branchesList = useList({
-    resource: "branches",
+    resource: "latest_branches",
     pagination: {
       mode: "off",
     },
@@ -16,17 +16,6 @@ export const DashboardStats: React.FC = () => {
   const branchesData = branchesList.result?.data;
   const isLoadingBranches = branchesList.query.isLoading;
   const isErrorBranches = branchesList.query.isError;
-
-  // Fetch Events
-  const eventsList = useList({
-    resource: "events",
-    pagination: {
-      mode: "off",
-    },
-  });
-  const eventsData = eventsList.result?.data;
-  const isLoadingEvents = eventsList.query.isLoading;
-  const isErrorEvents = eventsList.query.isError;
 
   // Fetch all Users
   const usersList = useList({
@@ -51,30 +40,15 @@ export const DashboardStats: React.FC = () => {
   const isLoadingPendingUsers = pendingUsersList.query.isLoading;
   const isErrorPendingUsers = pendingUsersList.query.isError;
 
-  // Fetch Notifications
-  const notificationsList = useList({
-    resource: "notifications",
-    pagination: {
-      mode: "off",
-    },
-  });
-  const notificationsData = notificationsList.result?.data;
-  const isLoadingNotifications = notificationsList.query.isLoading;
-  const isErrorNotifications = notificationsList.query.isError;
-
-
   const totalBranches = branchesData?.length ?? 0;
-  const totalEvents = eventsData?.length ?? 0;
   const totalUsers = usersData?.length ?? 0;
   const pendingUsers = pendingUsersData?.length ?? 0;
-  const totalNotifications = notificationsData?.length ?? 0;
 
-
-  if (isLoadingBranches || isLoadingEvents || isLoadingUsers || isLoadingPendingUsers || isLoadingNotifications) {
+  if (isLoadingBranches || isLoadingUsers || isLoadingPendingUsers) {
     return <CircularProgress />;
   }
 
-  if (isErrorBranches || isErrorEvents || isErrorUsers || isErrorPendingUsers || isErrorNotifications) {
+  if (isErrorBranches || isErrorUsers || isErrorPendingUsers) {
     return <Typography color="error">Error loading dashboard stats.</Typography>;
   }
 
@@ -96,34 +70,6 @@ export const DashboardStats: React.FC = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/events")}>
-            <CardContent>
-              <Typography variant="h6" component="div">
-                Total Events
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {totalEvents}
-              </Typography>
-            </CardContent>
-          </CardActionArea>
-        </Card>
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <Card>
-          <CardActionArea onClick={() => navigate("/notifications")}>
-            <CardContent>
-              <Typography variant="h6" component="div">
-                Total Notifications
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {totalNotifications}
-              </Typography>
-            </CardContent>
-          </CardActionArea>
-        </Card>
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <Card>
           <CardActionArea onClick={() => navigate("/users")}>
             <CardContent>
               <Typography variant="h6" component="div">
@@ -138,7 +84,7 @@ export const DashboardStats: React.FC = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <Card>
-          <CardActionArea onClick={() => navigate("/users")}> {/* Assuming pending users are managed within the main users list */}
+          <CardActionArea onClick={() => navigate("/users")}>
             <CardContent>
               <Typography variant="h6" component="div">
                 Pending Users
