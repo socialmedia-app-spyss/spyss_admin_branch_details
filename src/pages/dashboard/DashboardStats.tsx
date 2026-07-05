@@ -1,14 +1,24 @@
 import React from "react";
-import { useList } from "@refinedev/core";
+import { useGetIdentity, useList } from "@refinedev/core";
 import { Grid, Card, CardContent, Typography, CircularProgress, CardActionArea } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import type { UserProfile } from "../../types/user";
 
 export const DashboardStats: React.FC = () => {
   const navigate = useNavigate();
+  const { data: identity } = useGetIdentity<UserProfile>();
+  const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
+  const accessibleValayaIds = identity?.accessible_valaya_ids ?? [];
+  const valayaAccessFilters = isValayaAdmin
+    ? accessibleValayaIds.length > 0
+      ? [{ field: "valaya_id", operator: "in" as const, value: accessibleValayaIds }]
+      : [{ field: "valaya_id", operator: "eq" as const, value: "__no_valaya_access__" }]
+    : [];
 
   // Fetch Branches
   const branchesList = useList({
     resource: "latest_branches",
+    filters: valayaAccessFilters,
     pagination: {
       mode: "off",
     },

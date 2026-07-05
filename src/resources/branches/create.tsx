@@ -11,6 +11,9 @@ const normalizeOptionalString = (value?: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const normalizeOptionalNumber = (value?: number | null) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
 export const BranchCreate = () => {
   const {
     saveButtonProps,
@@ -44,16 +47,22 @@ export const BranchCreate = () => {
   const selectedStateId = watch("state_id");
   const selectedDistrictId = watch("district_id");
 
-  const handleFinish = (values: BranchCreateInput) =>
-    onFinish({
+  const handleFinish = (values: BranchCreateInput) => {
+    const payload = {
       ...values,
       area: normalizeOptionalString(values.area),
       class_days: normalizeClassDays(values.class_days),
+      latitude: normalizeOptionalNumber(values.latitude),
+      longitude: normalizeOptionalNumber(values.longitude),
       google_location_link: values.google_location_link?.trim(),
-      email_id: normalizeOptionalString(values.email_id),
-      whatsapp_number: normalizeOptionalString(values.whatsapp_number),
+      email_id: values.email_id?.trim(),
+      whatsapp_number: values.whatsapp_number?.trim(),
       branch_start_date: normalizeOptionalString(values.branch_start_date),
-    });
+    };
+
+    console.log("BranchCreate final payload", payload);
+    return onFinish(payload);
+  };
 
   return (
     <Create

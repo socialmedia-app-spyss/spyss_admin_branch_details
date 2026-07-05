@@ -1,5 +1,6 @@
 import React from "react";
 import { DashboardStats } from "./DashboardStats";
+import { ValayaBranchCounts } from "./ValayaBranchCounts";
 // import { RecentBranches } from "./RecentBranches";
 // import { UpcomingEvents } from "./UpcomingEvents";
 // import { PendingApprovals } from "./PendingApprovals";
@@ -15,6 +16,7 @@ export const DashboardPage: React.FC = () => {
       <p>Welcome to the Admin Dashboard, {currentUser?.name || currentUser?.email}!</p>
 
       <DashboardStats />
+      <ValayaBranchCounts />
       {/*<div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>*/}
       {/*  <div style={{ flex: 1 }}>*/}
       {/*    <RecentBranches />*/}

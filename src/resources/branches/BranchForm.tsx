@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
+import { useGetIdentity } from "@refinedev/core";
 import {
   Box,
-  Checkbox,
+  Button,
   FormControl,
-  FormControlLabel,
   FormHelperText,
   Grid,
   InputLabel,
@@ -13,7 +13,15 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { supabaseClient } from "../../supabaseClient";
+import {
+  getDistinctValayaOptions,
+  getMatchingValayaIdForDistrict,
+  type ValayaOption,
+  type ValayaScopeRow,
+} from "../../services/valayaScope";
+import { resolveGoogleMapLink } from "../../utils/mapLinkResolver";
 import type {
   BranchCreateInput,
   MasterBatch,
@@ -24,6 +32,7 @@ import type {
   MasterState,
   MasterValaya,
 } from "../../types/branch";
+import type { UserProfile } from "../../types/user";
 
 type BranchFormValues = BranchCreateInput;
 
@@ -167,8 +176,8 @@ const validateBranchName = (value: string) => {
   return true;
 };
 
-const validatePhoneNumber = (value: string) => {
-  const phoneNumber = value.trim();
+const validatePhoneNumber = (value?: string | null) => {
+  const phoneNumber = String(value ?? "").trim();
 
   if (!phoneNumber) {
     return "Contact number is required.";
@@ -191,6 +200,59 @@ const validatePhoneNumber = (value: string) => {
   return true;
 };
 
+const normalizeOptionalNumber = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const numberValue = Number(value);
+  return Number.isNaN(numberValue) ? null : numberValue;
+};
+
+const getValidCoordinates = (latValue: string, lngValue: string) => {
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null;
+  }
+
+  return {
+    latitude: lat,
+    longitude: lng,
+  };
+};
+
+const extractCoordinatesFromGoogleMapsLink = (value?: string | null) => {
+  const link = String(value ?? "").trim();
+
+  if (!link) {
+    return null;
+  }
+
+  const decodedLink = decodeURIComponent(link);
+  const coordinatePatterns = [
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /[?&]query=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /[?&]ll=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /[?&]center=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /\/search\/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+  ];
+
+  for (const pattern of coordinatePatterns) {
+    const match = decodedLink.match(pattern);
+    const coordinates = match ? getValidCoordinates(match[1], match[2]) : null;
+
+    if (coordinates) {
+      return coordinates;
+    }
+  }
+
+  return null;
+};
+
 export const BranchForm = ({
   register,
   control,
@@ -209,12 +271,21 @@ export const BranchForm = ({
   const [endHour, setEndHour] = useState(applyDefaults ? "00" : "");
   const [endMinute, setEndMinute] = useState(applyDefaults ? "00" : "");
   const [endAmPm, setEndAmPm] = useState(applyDefaults ? "AM" : "");
-  const [useContactForWhatsapp, setUseContactForWhatsapp] = useState(false);
+  const [valayaOptions, setValayaOptions] = useState<ValayaOption[]>([]);
+  const [selectedValayaCode, setSelectedValayaCode] = useState("");
+  const [isFetchingLatLng, setIsFetchingLatLng] = useState(false);
+  const [latLngMessage, setLatLngMessage] = useState<string | null>(null);
   const defaultValuesApplied = useRef(false);
   const classTimingsParsed = useRef(false);
-  const contactNumber = watch("contact_number");
+  const { data: identity } = useGetIdentity<UserProfile>();
   const classTimings = watch("class_timings");
+  const selectedValayaId = watch("valaya_id");
+  const latitude = watch("latitude");
+  const longitude = watch("longitude");
+  const googleLocationLink = watch("google_location_link");
   const timingSource = classTimings || initialClassTimings;
+  const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
+  const isSuperAdmin = identity?.role === "SUPER_ADMIN";
 
   useEffect(() => {
     const fetchMasterOptions = async () => {
@@ -226,6 +297,7 @@ export const BranchForm = ({
         valayas,
         statuses,
         mediums,
+        distinctValayas,
       ] = await Promise.all([
         supabaseClient.from("master_categories").select("*").eq("is_active", true).order("display_order"),
         supabaseClient.from("master_batches").select("*").eq("is_active", true).order("display_order"),
@@ -234,6 +306,7 @@ export const BranchForm = ({
         supabaseClient.from("master_valayas").select("*").eq("is_active", true).order("display_order"),
         supabaseClient.from("master_branch_statuses").select("*").eq("is_active", true).order("display_order"),
         supabaseClient.from("master_mediums").select("*").eq("is_active", true).order("display_order"),
+        getDistinctValayaOptions(),
       ]);
 
       setOptions({
@@ -245,6 +318,7 @@ export const BranchForm = ({
         statuses: sortByDisplayOrder(statuses.data as MasterBranchStatus[] | null),
         mediums: sortByDisplayOrder(mediums.data as MasterMedium[] | null),
       });
+      setValayaOptions(distinctValayas);
     };
 
     fetchMasterOptions();
@@ -353,31 +427,157 @@ export const BranchForm = ({
     return endTimeInMinutes - startTimeInMinutes >= 45 ? true : "Class timing must be at least 45 minutes.";
   }, [endAmPm, endHour, endMinute, startAmPm, startHour, startMinute]);
 
-  const filteredDistricts = useMemo(
-    () => options.districts.filter((district) => district.state_id === selectedStateId),
-    [options.districts, selectedStateId],
-  );
+  const valayaRowsForSelectedCode = useMemo<ValayaScopeRow[]>(() => {
+    if (isValayaAdmin) {
+      return identity?.accessible_valaya_rows ?? [];
+    }
 
-  const filteredValayas = useMemo(
-    () => options.valayas.filter((valaya) => valaya.district_id === selectedDistrictId),
-    [options.valayas, selectedDistrictId],
-  );
+    if (!selectedValayaCode) {
+      return [];
+    }
+
+    return options.valayas.filter((valaya) => valaya.valaya_code === selectedValayaCode);
+  }, [identity?.accessible_valaya_rows, isValayaAdmin, options.valayas, selectedValayaCode]);
+
+  const filteredDistricts = useMemo(() => {
+    const districtsForState = options.districts.filter((district) => district.state_id === selectedStateId);
+
+    if (isValayaAdmin || selectedValayaCode) {
+      const allowedDistrictIds = new Set(valayaRowsForSelectedCode.map((row) => row.district_id));
+      return districtsForState.filter((district) => allowedDistrictIds.has(district.id));
+    }
+
+    return districtsForState;
+  }, [isValayaAdmin, options.districts, selectedStateId, selectedValayaCode, valayaRowsForSelectedCode]);
+
+  const safeDistrictValue = filteredDistricts.some((district) => district.id === selectedDistrictId)
+    ? selectedDistrictId ?? ""
+    : "";
+
+  const displayedValayaOptions = useMemo(() => {
+    if (!selectedValayaCode || valayaOptions.some((valaya) => valaya.valaya_code === selectedValayaCode)) {
+      return valayaOptions;
+    }
+
+    return [
+      ...valayaOptions,
+      {
+        id: selectedValayaId || selectedValayaCode,
+        valaya_name: identity?.valaya_name || selectedValayaCode,
+        valaya_code: selectedValayaCode,
+      },
+    ];
+  }, [identity?.valaya_name, selectedValayaCode, selectedValayaId, valayaOptions]);
+  const safeValayaCode = displayedValayaOptions.some((valaya) => valaya.valaya_code === selectedValayaCode)
+    ? selectedValayaCode
+    : "";
+
+  const coordinateMapLink = useMemo(() => {
+    const rawLatitude: unknown = latitude;
+    const rawLongitude: unknown = longitude;
+
+    if (rawLatitude === "" || rawLatitude === null || rawLatitude === undefined || rawLongitude === "" || rawLongitude === null || rawLongitude === undefined) {
+      return "";
+    }
+
+    const lat = Number(rawLatitude);
+    const lng = Number(rawLongitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return "";
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }, [latitude, longitude]);
+
+  const trimmedGoogleLocationLink = String(googleLocationLink ?? "").trim();
+  const canOpenGoogleLocationLink = trimmedGoogleLocationLink.startsWith("https://");
 
   useEffect(() => {
-    if (filteredValayas.length === 1) {
-      setValue("valaya_id", filteredValayas[0].id, { shouldValidate: true });
+    const coordinates = extractCoordinatesFromGoogleMapsLink(googleLocationLink);
+
+    if (!coordinates) {
+      return;
     }
-  }, [filteredValayas, setValue]);
+
+    if (latitude !== coordinates.latitude) {
+      setValue("latitude", coordinates.latitude, { shouldDirty: true, shouldValidate: true });
+    }
+
+    if (longitude !== coordinates.longitude) {
+      setValue("longitude", coordinates.longitude, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [googleLocationLink, latitude, longitude, setValue]);
+
+  const handleFetchLatLng = async () => {
+    setLatLngMessage(null);
+
+    if (!trimmedGoogleLocationLink) {
+      setLatLngMessage("Please enter Google location link first.");
+      return;
+    }
+
+    setIsFetchingLatLng(true);
+
+    try {
+      const result = await resolveGoogleMapLink(trimmedGoogleLocationLink);
+
+      if (!result.success || result.latitude === undefined || result.longitude === undefined) {
+        setLatLngMessage(result.error || "Could not fetch latitude and longitude.");
+        return;
+      }
+
+      setValue("latitude", result.latitude, { shouldDirty: true, shouldValidate: true });
+      setValue("longitude", result.longitude, { shouldDirty: true, shouldValidate: true });
+      setLatLngMessage("Latitude and longitude fetched successfully.");
+    } catch (error) {
+      console.error("Fetch lat/long error:", error);
+      setLatLngMessage("Failed to fetch latitude and longitude.");
+    } finally {
+      setIsFetchingLatLng(false);
+    }
+  };
 
   useEffect(() => {
-    if (useContactForWhatsapp) {
-      setValue("whatsapp_number", contactNumber || "", { shouldValidate: true });
+    if (!identity) {
+      return;
     }
-  }, [contactNumber, setValue, useContactForWhatsapp]);
+
+    console.log("BranchForm Valaya scope", {
+      role: identity.role,
+      userValayaId: identity.valaya_id,
+      valayaCode: identity.valaya_code,
+      accessibleValayaRows: identity.accessible_valaya_rows,
+      districtOptions: filteredDistricts,
+    });
+  }, [filteredDistricts, identity]);
+
+  useEffect(() => {
+    if (isValayaAdmin && identity?.valaya_code) {
+      setSelectedValayaCode(identity.valaya_code);
+      return;
+    }
+
+    if (selectedValayaId && options.valayas.length > 0) {
+      const selectedValaya = options.valayas.find((valaya) => valaya.id === selectedValayaId);
+      setSelectedValayaCode(selectedValaya?.valaya_code ?? "");
+    }
+  }, [identity?.valaya_code, isValayaAdmin, options.valayas, selectedValayaId]);
+
+  useEffect(() => {
+    if (!selectedDistrictId || valayaRowsForSelectedCode.length === 0) {
+      return;
+    }
+
+    const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, selectedDistrictId);
+
+    if (matchingValayaId && matchingValayaId !== selectedValayaId) {
+      setValue("valaya_id", matchingValayaId, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [selectedDistrictId, selectedValayaId, setValue, valayaRowsForSelectedCode]);
 
   return (
     <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <input type="hidden" {...register("status_id", { required: "Status is required." })} />
       <input type="hidden" {...register("medium_id", { required: "Medium is required." })} />
 
       <Grid container spacing={2}>
@@ -412,6 +612,7 @@ export const BranchForm = ({
                     setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
                   }}
                 >
+                  <MenuItem value="">Select state</MenuItem>
                   {options.states.map((state) => (
                     <MenuItem key={state.id} value={state.id}>
                       {state.state_name}
@@ -436,13 +637,16 @@ export const BranchForm = ({
                   {...field}
                   labelId="district-label"
                   label="District *"
-                  value={field.value || ""}
-                  disabled={!selectedStateId}
+                  value={safeDistrictValue}
+                  disabled={!selectedStateId || ((isSuperAdmin || !isValayaAdmin) && !selectedValayaCode)}
                   onChange={(event) => {
-                    field.onChange(event);
-                    setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                    const districtId = event.target.value;
+                    field.onChange(districtId);
+                    const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, districtId);
+                    setValue("valaya_id", matchingValayaId ?? "", { shouldDirty: true, shouldValidate: true });
                   }}
                 >
+                  <MenuItem value="">Select district</MenuItem>
                   {filteredDistricts.map((district) => (
                     <MenuItem key={district.id} value={district.id}>
                       {district.district_name}
@@ -461,17 +665,27 @@ export const BranchForm = ({
             <Controller
               name="valaya_id"
               control={control}
-              rules={{ required: "This field is required" }}
-              render={({ field }) => (
+              rules={{
+                validate: () =>
+                  Boolean(selectedValayaCode && selectedValayaId) ||
+                  "Select a Valaya and district combination.",
+              }}
+              render={() => (
                 <Select
-                  {...field}
                   labelId="valaya-label"
                   label="Valaya *"
-                  value={field.value || ""}
-                  disabled={!selectedDistrictId || filteredValayas.length === 1}
+                  value={safeValayaCode}
+                  disabled={isValayaAdmin}
+                  onChange={(event) => {
+                    const valayaCode = event.target.value;
+                    setSelectedValayaCode(valayaCode);
+                    setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
+                    setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                  }}
                 >
-                  {filteredValayas.map((valaya) => (
-                    <MenuItem key={valaya.id} value={valaya.id}>
+                  <MenuItem value="">Select Valaya</MenuItem>
+                  {displayedValayaOptions.map((valaya) => (
+                    <MenuItem key={valaya.valaya_code} value={valaya.valaya_code}>
                       {valaya.valaya_name}
                     </MenuItem>
                   ))}
@@ -480,9 +694,9 @@ export const BranchForm = ({
             />
             <FormHelperText>
               {errors.valaya_id?.message ||
-                (filteredValayas.length === 1
-                  ? "Valaya is selected automatically because only one valaya is available for this district."
-                  : "Choose the valaya for the selected district.")}
+                (isValayaAdmin
+                  ? "Valaya is fixed from your admin access. Select the district for this Valaya."
+                  : "Choose a Valaya first, then select the district.")}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -667,6 +881,27 @@ export const BranchForm = ({
             <FormHelperText>{errors.batch_id?.message || "Calculated automatically from the class start time: morning, afternoon, or evening."}</FormHelperText>
           </FormControl>
         </Grid>
+
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth error={!!errors.status_id}>
+            <InputLabel id="status-label">Status *</InputLabel>
+            <Controller
+              name="status_id"
+              control={control}
+              rules={{ required: "Status is required." }}
+              render={({ field }) => (
+                <Select {...field} labelId="status-label" label="Status *" value={field.value || ""}>
+                  {options.statuses.map((status) => (
+                    <MenuItem key={status.id} value={status.id}>
+                      {status.status_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+            />
+            <FormHelperText>{errors.status_id?.message || "Select the current branch status."}</FormHelperText>
+          </FormControl>
+        </Grid>
       </Grid>
 
       <TextField
@@ -698,9 +933,14 @@ export const BranchForm = ({
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
-            {...register("pincode", { required: "This field is required" })}
+            {...register("pincode", {
+              required: "Pincode is required.",
+              setValueAs: (value) => String(value ?? "").trim(),
+              validate: (value) => /^\d{6}$/.test(String(value ?? "")) || "Pincode must be exactly 6 digits.",
+            })}
             label="Pincode *"
             fullWidth
+            inputProps={{ inputMode: "numeric", maxLength: 6 }}
             InputLabelProps={{ shrink: true }}
             error={!!errors.pincode}
             helperText={errors.pincode?.message || "Enter the 6-digit postal pincode."}
@@ -739,58 +979,101 @@ export const BranchForm = ({
         </FormHelperText>
       </FormControl>
 
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+        <Box sx={{ display: "flex", gap: 1, width: "100%", alignItems: "flex-start", flexDirection: { xs: "column", sm: "row" } }}>
+          <TextField
+            {...register("google_location_link", {
+              required: "Google location link is required.",
+              setValueAs: (value) => String(value ?? "").trim(),
+              validate: (value) =>
+                String(value ?? "").startsWith("https://") || "Google location link must start with https://.",
+            })}
+            label="Google Location Link *"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            error={!!errors.google_location_link}
+            helperText={errors.google_location_link?.message || "Paste the Google Maps link. Latitude and longitude will auto-fill when the link contains coordinates."}
+          />
+          <Button
+            variant="outlined"
+            onClick={handleFetchLatLng}
+            disabled={isFetchingLatLng || !trimmedGoogleLocationLink}
+            sx={{ minWidth: 150, mt: { xs: 0, sm: 1 } }}
+          >
+            {isFetchingLatLng ? "Fetching..." : "Fetch Lat/Long"}
+          </Button>
+        </Box>
+        {latLngMessage && (
+          <Typography variant="body2" color={latLngMessage.includes("successfully") ? "success.main" : "error"}>
+            {latLngMessage}
+          </Typography>
+        )}
+        <Button
+          component="a"
+          href={canOpenGoogleLocationLink ? trimmedGoogleLocationLink : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="outlined"
+          startIcon={<OpenInNewIcon />}
+          disabled={!canOpenGoogleLocationLink}
+        >
+          Test Google Location Link
+        </Button>
+      </Box>
+
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <TextField
             {...register("latitude", {
-              required: "Latitude is required.",
-              valueAsNumber: true,
+              setValueAs: normalizeOptionalNumber,
               validate: (value) =>
+                value === null ||
+                value === undefined ||
                 (typeof value === "number" && !Number.isNaN(value) && value >= -90 && value <= 90) ||
                 "Latitude must be between -90 and 90.",
             })}
-            label="Latitude *"
+            label="Latitude"
             fullWidth
-            type="number"
+            type="text"
             InputLabelProps={{ shrink: true }}
-            inputProps={{ step: "any" }}
+            inputProps={{ inputMode: "decimal" }}
             error={!!errors.latitude}
-            helperText={errors.latitude?.message || "Latitude must be between -90 and 90."}
+            helperText={errors.latitude?.message || "Optional. Latitude must be between -90 and 90."}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
             {...register("longitude", {
-              required: "Longitude is required.",
-              valueAsNumber: true,
+              setValueAs: normalizeOptionalNumber,
               validate: (value) =>
+                value === null ||
+                value === undefined ||
                 (typeof value === "number" && !Number.isNaN(value) && value >= -180 && value <= 180) ||
                 "Longitude must be between -180 and 180.",
             })}
-            label="Longitude *"
+            label="Longitude"
             fullWidth
-            type="number"
+            type="text"
             InputLabelProps={{ shrink: true }}
-            inputProps={{ step: "any" }}
+            inputProps={{ inputMode: "decimal" }}
             error={!!errors.longitude}
-            helperText={errors.longitude?.message || "Longitude must be between -180 and 180."}
+            helperText={errors.longitude?.message || "Optional. Longitude must be between -180 and 180."}
           />
         </Grid>
+        <Grid item xs={12}>
+          <Button
+            component="a"
+            href={coordinateMapLink || undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outlined"
+            startIcon={<OpenInNewIcon />}
+            disabled={!coordinateMapLink}
+          >
+            Test Latitude and Longitude in Google Maps
+          </Button>
+        </Grid>
       </Grid>
-
-      <TextField
-        {...register("google_location_link", {
-          required: "Google location link is required.",
-          setValueAs: (value) => String(value ?? "").trim(),
-          validate: (value) =>
-            String(value ?? "").startsWith("https://") || "Google location link must start with https://.",
-        })}
-        label="Google Location Link *"
-        fullWidth
-        InputLabelProps={{ shrink: true }}
-        error={!!errors.google_location_link}
-        helperText={errors.google_location_link?.message || "Paste the Google Maps link for the branch location."}
-      />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -805,13 +1088,19 @@ export const BranchForm = ({
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
-            {...register("email_id")}
-            label="Email"
+            {...register("email_id", {
+              required: "Email is required.",
+              setValueAs: (value) => String(value ?? "").trim(),
+              validate: (value) =>
+                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value)) ||
+                "Enter a valid email address.",
+            })}
+            label="Email *"
             fullWidth
             type="email"
             InputLabelProps={{ shrink: true }}
             error={!!errors.email_id}
-            helperText={errors.email_id?.message || "Optional. Enter the branch or coordinator email address."}
+            helperText={errors.email_id?.message || "Enter the branch or coordinator email address."}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -829,34 +1118,17 @@ export const BranchForm = ({
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={useContactForWhatsapp}
-                onChange={(event) => {
-                  setUseContactForWhatsapp(event.target.checked);
-                  if (event.target.checked) {
-                    setValue("whatsapp_number", contactNumber || "", { shouldValidate: true });
-                  }
-                }}
-              />
-            }
-            label="WhatsApp number is same as contact number"
-          />
           <TextField
             {...register("whatsapp_number", {
+              required: "WhatsApp number is required.",
               setValueAs: (value) => String(value ?? "").trim(),
-              validate: (value) => !value || validatePhoneNumber(value),
+              validate: validatePhoneNumber,
             })}
-            label="WhatsApp Number"
+            label="WhatsApp Number *"
             fullWidth
             InputLabelProps={{ shrink: true }}
-            disabled={useContactForWhatsapp}
             error={!!errors.whatsapp_number}
-            helperText={
-              errors.whatsapp_number?.message ||
-              (useContactForWhatsapp ? "Copied automatically from the contact number." : "Optional. Enter only if it is different from the contact number.")
-            }
+            helperText={errors.whatsapp_number?.message || "Enter the WhatsApp number for this branch."}
           />
         </Grid>
       </Grid>

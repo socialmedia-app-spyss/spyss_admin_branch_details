@@ -94,7 +94,7 @@ function App() {
                   <Route path="/branches/edit/:id" element={<BranchEdit />} />
                   <Route path="/branches/show/:id" element={<BranchShow />} />
 
-                  <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN"]} />}>
+                  <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN", "VALAYA_ADMIN"]} />}>
                     <Route path="/users" element={<AdminUsers />} />
                   </Route>
                 </Route>

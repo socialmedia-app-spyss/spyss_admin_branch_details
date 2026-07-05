@@ -1,5 +1,79 @@
 import { supabaseClient } from "../supabaseClient";
-import { UserProfile } from "../types/user"; // Import UserProfile type
+import { UserProfile } from "../types/user";
+import { getValayaScopeForUser, type ValayaScopeRow } from "../services/valayaScope";
+
+type AdminRole =
+  | "SUPER_ADMIN"
+  | "STATE_ADMIN"
+  | "DISTRICT_ADMIN"
+  | "VALAYA_ADMIN"
+  | "BRANCH_ADMIN";
+
+type AppRole = AdminRole | "USER";
+
+type ExtendedIdentity = UserProfile & {
+  valaya_code?: string | null;
+  valaya_name?: string | null;
+  accessible_valaya_rows?: ValayaScopeRow[];
+  accessible_valaya_ids?: string[];
+  accessible_district_ids?: string[];
+};
+
+const ADMIN_ROLES: AdminRole[] = [
+  "SUPER_ADMIN",
+  "STATE_ADMIN",
+  "DISTRICT_ADMIN",
+  "VALAYA_ADMIN",
+  "BRANCH_ADMIN",
+];
+
+const VALAYA_ADMIN_RESOURCES = [
+  "dashboard",
+  "branches",
+  "latest_branches",
+  "events",
+  "activities",
+  "enquiries",
+  "users",
+  "master_districts",
+  "master_valayas",
+];
+
+const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states"];
+
+const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
+  const { data: authData, error: authError } =
+    await supabaseClient.auth.getUser();
+
+  if (authError || !authData.user) {
+    return null;
+  }
+
+  const { data: profile, error: profileError } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .eq("id", authData.user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error("getCurrentUserProfile: Error fetching user profile:", profileError);
+    return null;
+  }
+
+  const userProfile = profile as UserProfile;
+
+  const valayaScope = await getValayaScopeForUser(userProfile);
+
+  return {
+    ...authData.user,
+    ...userProfile,
+    valaya_code: valayaScope.valayaCode,
+    valaya_name: valayaScope.valayaName,
+    accessible_valaya_rows: valayaScope.valayaRows,
+    accessible_valaya_ids: valayaScope.valayaRows.map((row) => row.id),
+    accessible_district_ids: valayaScope.districtIds,
+  } as ExtendedIdentity;
+};
 
 export const authProvider = {
   login: async ({ email, password }: { email: string; password: string }) => {
@@ -8,7 +82,9 @@ export const authProvider = {
       password,
     });
 
-    if (error) return { success: false, error };
+    if (error) {
+      return { success: false, error };
+    }
 
     return { success: true, redirectTo: "/dashboard" };
   },
@@ -19,39 +95,23 @@ export const authProvider = {
   },
 
   check: async () => {
-    const { data: auth } = await supabaseClient.auth.getUser();
+    const identity = await getCurrentUserProfile();
 
-    if (!auth.user) {
+    if (!identity) {
       return { authenticated: false, redirectTo: "/login" };
     }
 
-    const { data: profile, error: profileError } = await supabaseClient
-      .from("user_profiles")
-      .select("*")
-      .eq("id", auth.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      console.error("Error fetching user profile:", profileError);
-      return { authenticated: false, redirectTo: "/login" };
-    }
-
-    // Type assertion for profile
-    const userProfile = profile as UserProfile;
-
-    if (userProfile.status !== "APPROVED" || !userProfile.is_active) {
+    if (identity.status !== "APPROVED" || !identity.is_active) {
       return {
         authenticated: false,
         redirectTo: "/access-denied",
-        // Removed error property as per Refine's AuthProvider expectation
       };
     }
 
-    if (userProfile.role === "USER") {
+    if (!ADMIN_ROLES.includes(identity.role as AdminRole)) {
       return {
         authenticated: false,
         redirectTo: "/access-denied",
-        // Removed error property as per Refine's AuthProvider expectation
       };
     }
 
@@ -59,28 +119,7 @@ export const authProvider = {
   },
 
   getIdentity: async () => {
-    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !authData.user) {
-      return null;
-    }
-
-    const { data: profile, error: profileError } = await supabaseClient
-      .from("user_profiles")
-      .select("*")
-      .eq("id", authData.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      console.error("getIdentity: Error fetching user profile:", profileError);
-      return null;
-    }
-
-    const mergedIdentity = {
-      ...authData.user,
-      ...profile, // Merge profile data with auth user data
-    };
-
-    return mergedIdentity;
+    return await getCurrentUserProfile();
   },
   register: async ({ email, password, full_name }: { email: string; password: string; full_name: string }) => {
     const { data, error } = await supabaseClient.auth.signUp({
@@ -88,7 +127,7 @@ export const authProvider = {
       password,
       options: {
         data: {
-          full_name: full_name, // Store full_name in user metadata
+          full_name,
         },
       },
     });
@@ -98,7 +137,6 @@ export const authProvider = {
       return { success: false, error };
     }
 
-    // After successful auth.signUp, create a profile entry in 'user_profiles' table
     if (data.user) {
       const { error: profileError } = await supabaseClient
         .from("user_profiles")
@@ -106,16 +144,16 @@ export const authProvider = {
           {
             id: data.user.id,
             email: data.user.email,
-            full_name: full_name, // Store full_name here
-            role: "USER", // Default role
-            status: "PENDING", // Default status
+            full_name,
+            role: "USER",
+            status: "PENDING",
+            is_active: true,
             created_at: new Date().toISOString(),
           },
         ]);
 
       if (profileError) {
         console.error("Register: Error creating user profile in user_profiles table:", profileError);
-        // Optionally, you might want to roll back the auth.signUp or handle this error differently
         return { success: false, error: profileError };
       }
     }
@@ -130,16 +168,56 @@ export const authProvider = {
     return { success: true };
   },
   can: async ({ resource, action: _action, params: _params }: { resource: string; action: string; params: any }) => {
-    const identity = await authProvider.getIdentity();
-    const userRole = (identity as UserProfile)?.role;
+    const identity = await getCurrentUserProfile();
 
-    if (resource === "users") {
-      // Only SUPER_ADMIN can list, show, create, edit, delete users
-      return { can: userRole === "SUPER_ADMIN" };
+    if (!identity) {
+      return { can: false };
     }
 
-    // Default to allowing access if no specific rule is defined
-    return { can: true };
+    const userRole = identity.role as AppRole;
+
+    if (identity.status !== "APPROVED" || !identity.is_active) {
+      return { can: false };
+    }
+
+    if (userRole === "USER") {
+      return { can: false };
+    }
+
+    if (userRole === "SUPER_ADMIN") {
+      return { can: true };
+    }
+
+    if (SUPER_ADMIN_ONLY_RESOURCES.includes(resource)) {
+      return { can: false };
+    }
+
+    if (userRole === "VALAYA_ADMIN") {
+      return { can: VALAYA_ADMIN_RESOURCES.includes(resource) };
+    }
+
+    if (userRole === "STATE_ADMIN") {
+      return { can: true };
+    }
+
+    if (userRole === "DISTRICT_ADMIN") {
+      return { can: true };
+    }
+
+    if (userRole === "BRANCH_ADMIN") {
+      const allowedBranchResources = [
+        "dashboard",
+        "branches",
+        "latest_branches",
+        "events",
+        "activities",
+        "enquiries",
+      ];
+
+      return { can: allowedBranchResources.includes(resource) };
+    }
+
+    return { can: false };
   },
   onError: async (error: Error) => {
     console.error("Auth Provider Error:", error);

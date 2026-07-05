@@ -1,5 +1,12 @@
 import { supabaseClient } from "../supabaseClient"; // Corrected path
-import type { UserStatus } from "../types/user";
+import type { UserRole, UserStatus } from "../types/user";
+
+type UserScopeUpdate = {
+  state_id?: string | null;
+  district_id?: string | null;
+  valaya_id?: string | null;
+  branch_id?: string | null;
+};
 
 export const userService = {
   getAll: async () => {
@@ -55,10 +62,50 @@ export const userService = {
       .eq("id", id);
   },
 
+  updateRole: async (id: string, role: UserRole, scope: UserScopeUpdate = {}) => {
+    const scopeUpdates =
+      role === "VALAYA_ADMIN"
+        ? {
+            district_id: null,
+            branch_id: null,
+            ...scope,
+          }
+        : role === "DISTRICT_ADMIN"
+          ? {
+              valaya_id: null,
+              branch_id: null,
+              ...scope,
+            }
+        : role === "BRANCH_ADMIN"
+          ? scope
+        : role === "SUPER_ADMIN"
+          ? {
+              state_id: null,
+              district_id: null,
+              valaya_id: null,
+              branch_id: null,
+            }
+          : scope;
+
+    return supabaseClient
+      .from("user_profiles")
+      .update({
+        role,
+        ...scopeUpdates,
+      })
+      .eq("id", id);
+  },
+
   makeUser: async (id: string) => {
     return supabaseClient
       .from("user_profiles")
-      .update({ role: "USER" })
+      .update({
+        role: "USER",
+        state_id: null,
+        district_id: null,
+        valaya_id: null,
+        branch_id: null,
+      })
       .eq("id", id);
   },
 };

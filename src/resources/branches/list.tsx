@@ -1,11 +1,25 @@
 import { List, useDataGrid, EditButton, DeleteButton, ShowButton } from "@refinedev/mui";
+import { useGetIdentity } from "@refinedev/core";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { BranchWithMasters } from "../../types/branch";
 import { Stack } from "@mui/material";
+import type { UserProfile } from "../../types/user";
 
 export const BranchList = () => {
+  const { data: identity } = useGetIdentity<UserProfile>();
+  const isSuperAdmin = identity?.role === "SUPER_ADMIN";
+  const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
+  const accessibleValayaIds = identity?.accessible_valaya_ids ?? [];
+  const valayaAccessFilters = isValayaAdmin
+    ? accessibleValayaIds.length > 0
+      ? [{ field: "valaya_id", operator: "in" as const, value: accessibleValayaIds }]
+      : [{ field: "valaya_id", operator: "eq" as const, value: "__no_valaya_access__" }]
+    : [];
   const { dataGridProps } = useDataGrid<BranchWithMasters>({
     resource: "latest_branches",
+    filters: {
+      permanent: valayaAccessFilters,
+    },
     meta: {
       select:
         "*, master_categories(category_name), master_batches(batch_name), master_states(state_name), master_districts(district_name), master_valayas(valaya_name), master_branch_statuses(status_name)",
@@ -62,7 +76,7 @@ export const BranchList = () => {
         <Stack direction="row" spacing={1}>
           <ShowButton hideText recordItemId={row.id} />
           <EditButton hideText recordItemId={row.id} />
-          <DeleteButton hideText recordItemId={row.id} />
+          {isSuperAdmin && <DeleteButton hideText recordItemId={row.id} />}
         </Stack>
       ),
     },
