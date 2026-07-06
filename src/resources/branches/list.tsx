@@ -36,16 +36,16 @@ export const BranchList = () => {
       valueGetter: (_, row) => row.master_states?.state_name ?? "",
     },
     {
-      field: "master_districts",
-      headerName: "District",
-      flex: 1,
-      valueGetter: (_, row) => row.master_districts?.district_name ?? "",
-    },
-    {
       field: "master_valayas",
       headerName: "Valaya",
       flex: 1,
       valueGetter: (_, row) => row.master_valayas?.valaya_name ?? "",
+    },
+    {
+      field: "master_districts",
+      headerName: "District",
+      flex: 1,
+      valueGetter: (_, row) => row.master_districts?.district_name ?? "",
     },
     {
       field: "master_categories",

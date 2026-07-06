@@ -627,6 +627,48 @@ export const BranchForm = ({
         </Grid>
 
         <Grid item xs={12} md={6}>
+          <FormControl fullWidth error={!!errors.valaya_id}>
+            <InputLabel id="valaya-label">Valaya *</InputLabel>
+            <Controller
+              name="valaya_id"
+              control={control}
+              rules={{
+                validate: (value) =>
+                  Boolean(value) ||
+                  "Select a Valaya and district combination.",
+              }}
+              render={() => (
+                <Select
+                  labelId="valaya-label"
+                  label="Valaya *"
+                  value={safeValayaCode}
+                  disabled={isValayaAdmin}
+                  onChange={(event) => {
+                    const valayaCode = event.target.value;
+                    setSelectedValayaCode(valayaCode);
+                    setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
+                    // Removed: setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                  }}
+                >
+                  <MenuItem value="">Select Valaya</MenuItem>
+                  {displayedValayaOptions.map((valaya) => (
+                    <MenuItem key={valaya.valaya_code} value={valaya.valaya_code}>
+                      {valaya.valaya_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+            />
+            <FormHelperText>
+              {errors.valaya_id?.message ||
+                (isValayaAdmin
+                  ? "Valaya is fixed from your admin access. Select the district for this Valaya."
+                  : "Choose a Valaya first, then select the district.")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
           <FormControl fullWidth error={!!errors.district_id}>
             <InputLabel id="district-label">District *</InputLabel>
             <Controller
@@ -658,48 +700,6 @@ export const BranchForm = ({
               )}
             />
             <FormHelperText>{errors.district_id?.message || "Select the district where the branch is located."}</FormHelperText>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.valaya_id}>
-            <InputLabel id="valaya-label">Valaya *</InputLabel>
-            <Controller
-              name="valaya_id"
-              control={control}
-              rules={{
-                validate: (value) =>
-                  Boolean(selectedValayaCode && value) ||
-                  "Select a Valaya and district combination.",
-              }}
-              render={() => (
-                <Select
-                  labelId="valaya-label"
-                  label="Valaya *"
-                  value={safeValayaCode}
-                  disabled={isValayaAdmin}
-                  onChange={(event) => {
-                    const valayaCode = event.target.value;
-                    setSelectedValayaCode(valayaCode);
-                    setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
-                    setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
-                  }}
-                >
-                  <MenuItem value="">Select Valaya</MenuItem>
-                  {displayedValayaOptions.map((valaya) => (
-                    <MenuItem key={valaya.valaya_code} value={valaya.valaya_code}>
-                      {valaya.valaya_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-            />
-            <FormHelperText>
-              {errors.valaya_id?.message ||
-                (isValayaAdmin
-                  ? "Valaya is fixed from your admin access. Select the district for this Valaya."
-                  : "Choose a Valaya first, then select the district.")}
-            </FormHelperText>
           </FormControl>
         </Grid>
       </Grid>
