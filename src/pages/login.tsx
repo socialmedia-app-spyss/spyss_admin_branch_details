@@ -1,8 +1,9 @@
 import { useLogin } from "@refinedev/core";
-import { Box, TextField, Button, Typography, Container } from "@mui/material";
+import { Avatar, Box, Button, Paper, TextField, Typography } from "@mui/material";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import spyssLogo from "../assets/spyss-logo.png";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -38,64 +39,111 @@ export const LoginPage = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
+    <Box
+      component="main"
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #f5f9ff 0%, #eef4fb 100%)",
+        px: 2,
+        py: 4,
+      }}
+    >
+      <Paper
+        elevation={4}
         sx={{
-          marginTop: 8,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          width: "100%",
+          maxWidth: 460,
+          p: { xs: 3, sm: 4 },
+          borderRadius: 3,
+          textAlign: "center",
         }}
       >
-        <Typography component="h1" variant="h5">
-          Sign in to SPYSS Admin
-        </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+		  
+          <Avatar
+            src={spyssLogo}
+            alt="SPYSS Logo"
+            sx={{
+              width: { xs: 90, sm: 104 },
+              height: { xs: 90, sm: 104 },
+              mx: "auto",
+              mb: 2,
+              bgcolor: "transparent",
+            }}
+            imgProps={{
+              style: {
+                objectFit: "contain",
+              },
+            }}
           />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {loginError && (
-            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-              {loginError}
-            </Typography>
-          )}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            disabled={isPending}
-            sx={{ mt: 3, mb: 2 }}
-          >
-            {isPending ? "Signing In..." : "Sign In"}
-          </Button>
-          <Link to="/register" style={{ textDecoration: 'none' }}>
-            <Button fullWidth variant="outlined">
-              Register
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Shri Patanjali Yoga Shikshana Samithi (R) Karnataka
+          </Typography>
+		  <Typography component="h1" variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
+            SPYSS Branches Admin Panel
+          </Typography>
+          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: "100%" }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="email"
+              label="Email Address"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {loginError && (
+              <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+                {loginError}
+              </Typography>
+            )}
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={isPending}
+              size="large"
+              sx={{ mt: 3, mb: 2, py: 1.3, fontWeight: 600, borderRadius: 2 }}
+            >
+              {isPending ? "Signing In..." : "Sign In"}
             </Button>
-          </Link>
+            <Link to="/register" style={{ textDecoration: "none" }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                sx={{ py: 1.2, fontWeight: 600, borderRadius: 2 }}
+              >
+                Register
+              </Button>
+            </Link>
+          </Box>
         </Box>
-      </Box>
-    </Container>
+      </Paper>
+    </Box>
   );
 };
