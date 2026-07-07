@@ -17,6 +17,60 @@ export const userService = {
     return userService.updateStatus(id, "APPROVED", adminId);
   },
 
+  approveUserWithRole: async (
+    id: string,
+    role: UserRole,
+    adminId?: string,
+    scope: UserScopeUpdate = {},
+  ) => {
+    const scopeUpdates =
+      role === "VALAYA_ADMIN"
+        ? {
+            district_id: null,
+            branch_id: null,
+            ...scope,
+          }
+        : role === "STATE_ADMIN"
+          ? {
+              district_id: null,
+              valaya_id: null,
+              branch_id: null,
+              ...scope,
+            }
+        : role === "DISTRICT_ADMIN"
+          ? {
+              valaya_id: null,
+              branch_id: null,
+              ...scope,
+            }
+        : role === "BRANCH_ADMIN"
+          ? scope
+        : role === "SUPER_ADMIN"
+          ? {
+              state_id: null,
+              district_id: null,
+              valaya_id: null,
+              branch_id: null,
+            }
+          : {
+              state_id: null,
+              district_id: null,
+              valaya_id: null,
+              branch_id: null,
+            };
+
+    return supabaseClient
+      .from("user_profiles")
+      .update({
+        status: "APPROVED",
+        approved_at: new Date().toISOString(),
+        approved_by: adminId ?? null,
+        role,
+        ...scopeUpdates,
+      })
+      .eq("id", id);
+  },
+
   updateStatus: async (id: string, status: UserStatus, adminId?: string) => {
     const approvalFields =
       status === "APPROVED"

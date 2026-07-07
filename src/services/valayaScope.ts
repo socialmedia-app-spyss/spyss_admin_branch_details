@@ -15,9 +15,25 @@ export type ValayaOption = {
   id: string;
   valaya_name: string;
   valaya_code: string;
+  district_id?: string | null;
+  state_id?: string | null;
   display_order?: number;
   is_active?: boolean;
 };
+
+type ValayaOptionRow = ValayaOption & {
+  master_districts?: { state_id?: string | null } | null;
+};
+
+const normalizeValayaOption = (row: ValayaOptionRow): ValayaOption => ({
+  id: row.id,
+  valaya_name: row.valaya_name,
+  valaya_code: row.valaya_code,
+  district_id: row.district_id ?? null,
+  state_id: row.state_id ?? row.master_districts?.state_id ?? null,
+  display_order: row.display_order,
+  is_active: row.is_active,
+});
 
 export const getMatchingValayaIdForDistrict = (
   valayaRows: ValayaScopeRow[],
@@ -77,19 +93,19 @@ export const getValayaScopeForUser = async (userProfile?: Pick<UserProfile, "val
 export const getDistinctValayaOptions = async (): Promise<ValayaOption[]> => {
   const viewResult = await supabaseClient
     .from("vw_valaya_options")
-    .select("id, valaya_name, valaya_code, display_order, is_active")
+    .select("id, valaya_name, valaya_code, district_id, state_id, display_order, is_active")
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
   if (!viewResult.error && viewResult.data) {
-    return viewResult.data as ValayaOption[];
+    return (viewResult.data as ValayaOptionRow[]).map(normalizeValayaOption);
   }
 
   console.warn("getDistinctValayaOptions: Falling back to master_valayas distinct options.", viewResult.error);
 
   const { data, error } = await supabaseClient
     .from("master_valayas")
-    .select("id, valaya_name, valaya_code, display_order, is_active")
+    .select("id, valaya_name, valaya_code, district_id, display_order, is_active, master_districts(state_id)")
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
@@ -100,9 +116,9 @@ export const getDistinctValayaOptions = async (): Promise<ValayaOption[]> => {
 
   const byCode = new Map<string, ValayaOption>();
 
-  for (const row of (data ?? []) as ValayaOption[]) {
+  for (const row of (data ?? []) as ValayaOptionRow[]) {
     if (!byCode.has(row.valaya_code)) {
-      byCode.set(row.valaya_code, row);
+      byCode.set(row.valaya_code, normalizeValayaOption(row));
     }
   }
 
