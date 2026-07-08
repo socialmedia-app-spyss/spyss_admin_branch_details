@@ -209,48 +209,22 @@ const normalizeOptionalNumber = (value: unknown) => {
   return Number.isNaN(numberValue) ? null : numberValue;
 };
 
-const getValidCoordinates = (latValue: string, lngValue: string) => {
-  const lat = Number(latValue);
-  const lng = Number(lngValue);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return null;
+const formatLocationDetailsList = (items: string[]) => {
+  if (items.length === 0) {
+    return "";
   }
 
-  return {
-    latitude: lat,
-    longitude: lng,
-  };
+  if (items.length === 1) {
+    return items[0];
+  }
+
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 };
 
-const extractCoordinatesFromGoogleMapsLink = (value?: string | null) => {
-  const link = String(value ?? "").trim();
-
-  if (!link) {
-    return null;
-  }
-
-  const decodedLink = decodeURIComponent(link);
-  const coordinatePatterns = [
-    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
-    /[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-    /[?&]query=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-    /[?&]ll=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-    /[?&]center=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-    /\/search\/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
-  ];
-
-  for (const pattern of coordinatePatterns) {
-    const match = decodedLink.match(pattern);
-    const coordinates = match ? getValidCoordinates(match[1], match[2]) : null;
-
-    if (coordinates) {
-      return coordinates;
-    }
-  }
-
-  return null;
+type LocationDetailsMessage = {
+  found?: string;
+  missing?: string;
+  error?: string;
 };
 
 export const BranchForm = ({
@@ -273,8 +247,8 @@ export const BranchForm = ({
   const [endAmPm, setEndAmPm] = useState("");
   const [valayaOptions, setValayaOptions] = useState<ValayaOption[]>([]);
   const [selectedValayaCode, setSelectedValayaCode] = useState("");
-  const [isFetchingLatLng, setIsFetchingLatLng] = useState(false);
-  const [latLngMessage, setLatLngMessage] = useState<string | null>(null);
+  const [isFetchingLocationDetails, setIsFetchingLocationDetails] = useState(false);
+  const [locationDetailsMessage, setLocationDetailsMessage] = useState<LocationDetailsMessage | null>(null);
   const defaultValuesApplied = useRef(false);
   const classTimingsParsed = useRef(false);
   const { data: identity } = useGetIdentity<UserProfile>();
@@ -493,48 +467,78 @@ export const BranchForm = ({
   const trimmedGoogleLocationLink = String(googleLocationLink ?? "").trim();
   const canOpenGoogleLocationLink = trimmedGoogleLocationLink.startsWith("https://");
 
-  useEffect(() => {
-    const coordinates = extractCoordinatesFromGoogleMapsLink(googleLocationLink);
-
-    if (!coordinates) {
-      return;
-    }
-
-    if (latitude !== coordinates.latitude) {
-      setValue("latitude", coordinates.latitude, { shouldDirty: true, shouldValidate: true });
-    }
-
-    if (longitude !== coordinates.longitude) {
-      setValue("longitude", coordinates.longitude, { shouldDirty: true, shouldValidate: true });
-    }
-  }, [googleLocationLink, latitude, longitude, setValue]);
-
-  const handleFetchLatLng = async () => {
-    setLatLngMessage(null);
+  const handleFetchLocationDetails = async () => {
+    setLocationDetailsMessage(null);
 
     if (!trimmedGoogleLocationLink) {
-      setLatLngMessage("Please enter Google location link first.");
+      setLocationDetailsMessage({ error: "Please enter Google location link first." });
       return;
     }
 
-    setIsFetchingLatLng(true);
+    setIsFetchingLocationDetails(true);
 
     try {
       const result = await resolveGoogleMapLink(trimmedGoogleLocationLink);
 
-      if (!result.success || result.latitude === undefined || result.longitude === undefined) {
-        setLatLngMessage(result.error || "Could not fetch latitude and longitude.");
+      if (!result.success) {
+        const isNotMapsLocation = result.error?.includes("does not open a Google Maps location");
+        setLocationDetailsMessage({
+          error: isNotMapsLocation
+            ? "This link is not a Google Maps location. Please open the place in Google Maps, tap Share, copy the Maps link, and try again."
+            : result.error || "Could not fetch location details.",
+        });
         return;
       }
 
-      setValue("latitude", result.latitude, { shouldDirty: true, shouldValidate: true });
-      setValue("longitude", result.longitude, { shouldDirty: true, shouldValidate: true });
-      setLatLngMessage("Latitude and longitude fetched successfully.");
+      if (result.address) {
+        setValue("full_address", result.address, { shouldDirty: true, shouldValidate: true });
+      }
+
+      if (result.area) {
+        setValue("area", result.area, { shouldDirty: true, shouldValidate: true });
+      }
+
+      if (result.pincode) {
+        setValue("pincode", result.pincode, { shouldDirty: true, shouldValidate: true });
+      }
+
+      const foundDetails = [
+        result.address ? "address" : null,
+        result.area ? "area" : null,
+        result.pincode ? "pincode" : null,
+        result.latitude !== null && result.latitude !== undefined ? "latitude" : null,
+        result.longitude !== null && result.longitude !== undefined ? "longitude" : null,
+      ].filter((detail): detail is string => Boolean(detail));
+      const missingDetails = [
+        result.address ? null : "address",
+        result.area ? null : "area",
+        result.pincode ? null : "pincode",
+        result.latitude !== null && result.latitude !== undefined ? null : "latitude",
+        result.longitude !== null && result.longitude !== undefined ? null : "longitude",
+      ].filter((detail): detail is string => Boolean(detail));
+
+      if (result.latitude !== null && result.latitude !== undefined) {
+        setValue("latitude", result.latitude, { shouldDirty: true, shouldValidate: true });
+      }
+
+      if (result.longitude !== null && result.longitude !== undefined) {
+        setValue("longitude", result.longitude, { shouldDirty: true, shouldValidate: true });
+      }
+
+      if (missingDetails.length > 0) {
+        setLocationDetailsMessage({
+          found: foundDetails.length > 0 ? `Found ${formatLocationDetailsList(foundDetails)}.` : undefined,
+          missing: `Could not find ${formatLocationDetailsList(missingDetails)} in this link. Please fill the missing details manually or paste another Google Maps link.`,
+        });
+        return;
+      }
+
+      setLocationDetailsMessage({ found: `Found ${formatLocationDetailsList(foundDetails)} in this link.` });
     } catch (error) {
-      console.error("Fetch lat/long error:", error);
-      setLatLngMessage("Failed to fetch latitude and longitude.");
+      console.error("Fetch location details error:", error);
+      setLocationDetailsMessage({ error: "Failed to fetch location details." });
     } finally {
-      setIsFetchingLatLng(false);
+      setIsFetchingLocationDetails(false);
     }
   };
 
@@ -906,50 +910,6 @@ export const BranchForm = ({
         </Grid>
       </Grid>
 
-      <TextField
-        {...register("full_address", { required: "This field is required" })}
-        label="Full Address *"
-        fullWidth
-        multiline
-        minRows={3}
-        InputLabelProps={{ shrink: true }}
-        error={!!errors.full_address}
-        helperText={errors.full_address?.message || "Enter the complete address, including landmark or building details if available."}
-      />
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("area", {
-              required: "Area is required.",
-              setValueAs: (value) => String(value ?? "").trim().replace(/\s+/g, " "),
-              minLength: { value: 3, message: "Area must be at least 3 characters." },
-              maxLength: { value: 30, message: "Area must be 30 characters or fewer." },
-            })}
-            label="Area *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.area}
-            helperText={errors.area?.message || "Enter the locality, neighborhood, or area name."}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("pincode", {
-              required: "Pincode is required.",
-              setValueAs: (value) => String(value ?? "").trim(),
-              validate: (value) => /^\d{6}$/.test(String(value ?? "")) || "Pincode must be exactly 6 digits.",
-            })}
-            label="Pincode *"
-            fullWidth
-            inputProps={{ inputMode: "numeric", maxLength: 6 }}
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.pincode}
-            helperText={errors.pincode?.message || "Enter the 6-digit postal pincode."}
-          />
-        </Grid>
-      </Grid>
-
       <FormControl fullWidth error={!!errors.class_days}>
         <InputLabel id="class-days-label">Class Days *</InputLabel>
         <Controller
@@ -994,21 +954,35 @@ export const BranchForm = ({
             fullWidth
             InputLabelProps={{ shrink: true }}
             error={!!errors.google_location_link}
-            helperText={errors.google_location_link?.message || "Paste the Google Maps link. Latitude and longitude will auto-fill when the link contains coordinates."}
+            helperText={errors.google_location_link?.message || "Paste the Google Maps link, then fetch the location details."}
           />
           <Button
             variant="outlined"
-            onClick={handleFetchLatLng}
-            disabled={isFetchingLatLng || !trimmedGoogleLocationLink}
-            sx={{ minWidth: 150, mt: { xs: 0, sm: 1 } }}
+            onClick={handleFetchLocationDetails}
+            disabled={isFetchingLocationDetails || !trimmedGoogleLocationLink}
+            sx={{ minWidth: 260, mt: { xs: 0, sm: 1 } }}
           >
-            {isFetchingLatLng ? "Fetching..." : "Fetch Lat/Long"}
+            {isFetchingLocationDetails ? "Fetching..." : "Fetch Address, Area, Pincode, Lat/Long"}
           </Button>
         </Box>
-        {latLngMessage && (
-          <Typography variant="body2" color={latLngMessage.includes("successfully") ? "success.main" : "error"}>
-            {latLngMessage}
-          </Typography>
+        {locationDetailsMessage && (
+          <Box>
+            {locationDetailsMessage.found && (
+              <Typography variant="body2" color="success.main">
+                {locationDetailsMessage.found}
+              </Typography>
+            )}
+            {locationDetailsMessage.missing && (
+              <Typography variant="body2" color="error">
+                {locationDetailsMessage.missing}
+              </Typography>
+            )}
+            {locationDetailsMessage.error && (
+              <Typography variant="body2" color="error">
+                {locationDetailsMessage.error}
+              </Typography>
+            )}
+          </Box>
         )}
         <Button
           component="a"
@@ -1022,6 +996,50 @@ export const BranchForm = ({
           Test Google Location Link
         </Button>
       </Box>
+
+      <TextField
+        {...register("full_address", { required: "This field is required" })}
+        label="Full Address *"
+        fullWidth
+        multiline
+        minRows={3}
+        InputLabelProps={{ shrink: true }}
+        error={!!errors.full_address}
+        helperText={errors.full_address?.message || "Enter the complete address, including landmark or building details if available."}
+      />
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <TextField
+            {...register("area", {
+              required: "Area is required.",
+              setValueAs: (value) => String(value ?? "").trim().replace(/\s+/g, " "),
+              minLength: { value: 3, message: "Area must be at least 3 characters." },
+              maxLength: { value: 30, message: "Area must be 30 characters or fewer." },
+            })}
+            label="Area *"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            error={!!errors.area}
+            helperText={errors.area?.message || "Enter the locality, neighborhood, or area name."}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            {...register("pincode", {
+              required: "Pincode is required.",
+              setValueAs: (value) => String(value ?? "").trim(),
+              validate: (value) => /^\d{6}$/.test(String(value ?? "")) || "Pincode must be exactly 6 digits.",
+            })}
+            label="Pincode *"
+            fullWidth
+            inputProps={{ inputMode: "numeric", maxLength: 6 }}
+            InputLabelProps={{ shrink: true }}
+            error={!!errors.pincode}
+            helperText={errors.pincode?.message || "Enter the 6-digit postal pincode."}
+          />
+        </Grid>
+      </Grid>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
