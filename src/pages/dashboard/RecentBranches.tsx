@@ -1,8 +1,11 @@
 import React from "react";
 import { useList } from "@refinedev/core";
 import { Card, CardContent, Typography, CircularProgress, List, ListItem, ListItemText } from "@mui/material";
+import { useLanguage } from "../../hooks/useLanguage";
+import { getLocalizedName } from "../../utils/i18n";
 
 export const RecentBranches: React.FC = () => {
+  const { language } = useLanguage();
   const { query: { data: branchesData, isLoading, isError } } = useList({ // Corrected destructuring
     resource: "latest_branches",
     pagination: {
@@ -48,7 +51,10 @@ export const RecentBranches: React.FC = () => {
           <List>
             {branches.map((branch: any) => (
               <ListItem key={branch.id}>
-                <ListItemText primary={branch.branch_name} secondary={new Date(branch.created_at).toLocaleDateString()} /> {/* Changed to branch.branch_name */}
+                <ListItemText
+                  primary={getLocalizedName(branch.branch_name_en, branch.branch_name_kn, language)}
+                  secondary={new Date(branch.created_at).toLocaleDateString()}
+                />
               </ListItem>
             ))}
           </List>

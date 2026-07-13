@@ -6,17 +6,47 @@ import { ValayaBranchCounts } from "./ValayaBranchCounts";
 // import { PendingApprovals } from "./PendingApprovals";
 import { QuickActions } from "./QuickActions";
 import {useGetIdentity} from "@refinedev/core";
-// import { RecentNotifications } from "./RecentNotifications"; // Import RecentNotifications
+import { RecentNotifications } from "./RecentNotifications";
+import { NotificationStats } from "./NotificationStats";
+import { UserStats } from "./UserStats";
+import { Box, Stack, Typography } from "@mui/material";
 
 export const DashboardPage: React.FC = () => {
     const { data: currentUser } = useGetIdentity<{ name: string; email: string; role: string }>();
     return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome to the Admin Dashboard, {currentUser?.name || currentUser?.email}!</p>
+    <Box>
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} gap={2}>
+        <Box>
+          <Typography variant="h4" fontWeight={700}>Dashboard</Typography>
+          <Typography color="text.secondary">Welcome, {currentUser?.name || currentUser?.email}</Typography>
+        </Box>
+        <QuickActions />
+      </Stack>
 
-      <DashboardStats />
-      <ValayaBranchCounts />
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "primary.main", color: "primary.contrastText" }}>
+          Branch Overview
+        </Typography>
+        <DashboardStats />
+        <ValayaBranchCounts />
+      </Box>
+
+      {currentUser?.role === "SUPER_ADMIN" && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "warning.main", color: "warning.contrastText" }}>
+            Notification Overview
+          </Typography>
+          <NotificationStats />
+          <RecentNotifications />
+        </Box>
+      )}
+
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "secondary.main", color: "secondary.contrastText" }}>
+          User Overview
+        </Typography>
+        <UserStats />
+      </Box>
       {/*<div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>*/}
       {/*  <div style={{ flex: 1 }}>*/}
       {/*    <RecentBranches />*/}
@@ -29,7 +59,6 @@ export const DashboardPage: React.FC = () => {
       {/*  </div>*/}
       {/*</div>*/}
       {/*<PendingApprovals />*/}
-      <QuickActions />
-    </div>
+    </Box>
   );
 };

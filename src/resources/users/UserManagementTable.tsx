@@ -70,7 +70,7 @@ export const UserManagementTable = () => {
 
   const defaultStateId = useMemo(() => {
     const karnataka = stateOptions.find((state) => {
-      const name = state.state_name.toLowerCase();
+      const name = state.state_name_en.toLowerCase();
       const code = state.state_code.toLowerCase();
       return name === "karnataka" || code === "ka" || code === "kar";
     });
@@ -165,7 +165,8 @@ export const UserManagementTable = () => {
       ...valayaOptions,
       {
         id: valayaId,
-        valaya_name: user.valaya_name || currentUser?.valaya_name || "Assigned Valaya",
+        valaya_name_en: user.valaya_name || currentUser?.valaya_name || "Assigned Valaya",
+        valaya_name_kn: user.valaya_name || currentUser?.valaya_name || "Assigned Valaya",
         valaya_code: user.valaya_code || currentUser?.valaya_code || valayaId,
         state_id: user.state_id || currentUser?.state_id || null,
       },
@@ -368,7 +369,7 @@ export const UserManagementTable = () => {
                         <MenuItem value="">Select Valaya</MenuItem>
                         {getValayaOptionsForUser(u).map((valaya) => (
                           <MenuItem key={valaya.id} value={valaya.id}>
-                            {valaya.valaya_name}
+                            {valaya.valaya_name_en}
                           </MenuItem>
                         ))}
                       </Select>
@@ -465,7 +466,7 @@ export const UserManagementTable = () => {
                   <MenuItem value="">Select State</MenuItem>
                   {stateOptions.map((state) => (
                     <MenuItem key={state.id} value={state.id}>
-                      {state.state_name}
+                      {state.state_name_en}
                     </MenuItem>
                   ))}
                 </Select>
@@ -490,7 +491,7 @@ export const UserManagementTable = () => {
                   <MenuItem value="">Select Valaya</MenuItem>
                   {getValayaOptionsForUser(pendingValayaUser).map((valaya) => (
                     <MenuItem key={valaya.id} value={valaya.id}>
-                      {valaya.valaya_name}
+                      {valaya.valaya_name_en}
                     </MenuItem>
                   ))}
                 </Select>
@@ -548,7 +549,7 @@ export const UserManagementTable = () => {
                     <MenuItem value="">Select State</MenuItem>
                     {stateOptions.map((state) => (
                       <MenuItem key={state.id} value={state.id}>
-                        {state.state_name}
+                        {state.state_name_en}
                       </MenuItem>
                     ))}
                   </Select>
@@ -572,7 +573,7 @@ export const UserManagementTable = () => {
                     <MenuItem value="">Select Valaya</MenuItem>
                     {getValayaOptionsForUser(pendingApprovalUser).map((valaya) => (
                       <MenuItem key={valaya.id} value={valaya.id}>
-                        {valaya.valaya_name}
+                        {valaya.valaya_name_en}
                       </MenuItem>
                     ))}
                   </Select>

@@ -2,25 +2,31 @@ import React, { useMemo } from "react";
 import { useGetIdentity, useList } from "@refinedev/core";
 import {
   Box,
-  Card,
-  CardContent,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   CircularProgress,
   Divider,
   Grid,
   Stack,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { UserProfile } from "../../types/user";
+import { useLanguage } from "../../hooks/useLanguage";
+import { getLocalizedName } from "../../utils/i18n";
 
 type BranchCountRow = {
   id: string;
   district_id?: string | null;
   valaya_id?: string | null;
   master_districts?: {
-    district_name?: string | null;
+    district_name_en?: string | null;
+    district_name_kn?: string | null;
   } | null;
   master_valayas?: {
-    valaya_name?: string | null;
+    valaya_name_en?: string | null;
+    valaya_name_kn?: string | null;
     valaya_code?: string | null;
   } | null;
 };
@@ -40,6 +46,7 @@ type ValayaCount = {
 
 export const ValayaBranchCounts: React.FC = () => {
   const { data: identity } = useGetIdentity<UserProfile>();
+  const { language } = useLanguage();
   const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
   const accessibleValayaIds = identity?.accessible_valaya_ids ?? [];
   const valayaAccessFilters = isValayaAdmin
@@ -54,7 +61,7 @@ export const ValayaBranchCounts: React.FC = () => {
       mode: "off",
     },
     meta: {
-      select: "id, district_id, valaya_id, master_districts(district_name), master_valayas(valaya_name, valaya_code)",
+      select: "id, district_id, valaya_id, master_districts(district_name_en, district_name_kn), master_valayas(valaya_name_en, valaya_name_kn, valaya_code)",
     },
   });
 
@@ -64,9 +71,9 @@ export const ValayaBranchCounts: React.FC = () => {
 
     for (const branch of branches) {
       const valayaCode = branch.master_valayas?.valaya_code || branch.valaya_id || "UNKNOWN";
-      const valayaName = branch.master_valayas?.valaya_name || "Unknown Valaya";
+      const valayaName = getLocalizedName(branch.master_valayas?.valaya_name_en, branch.master_valayas?.valaya_name_kn, language) || "Unknown Valaya";
       const districtId = branch.district_id || "UNKNOWN";
-      const districtName = branch.master_districts?.district_name || "Unknown District";
+      const districtName = getLocalizedName(branch.master_districts?.district_name_en, branch.master_districts?.district_name_kn, language) || "Unknown District";
 
       if (!countsByValaya.has(valayaCode)) {
         countsByValaya.set(valayaCode, {
@@ -105,41 +112,45 @@ export const ValayaBranchCounts: React.FC = () => {
         districts: [...valaya.districts].sort((a, b) => a.districtName.localeCompare(b.districtName)),
       }))
       .sort((a, b) => a.valayaName.localeCompare(b.valayaName));
-  }, [result?.data]);
+  }, [language, result?.data]);
 
   if (query.isLoading) {
     return (
-      <Card sx={{ mt: 2 }}>
-        <CardContent>
+      <Accordion sx={{ mt: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography variant="h6">Valaya Wise Branch Count</Typography></AccordionSummary>
+        <AccordionDetails>
           <CircularProgress size={24} />
-        </CardContent>
-      </Card>
+        </AccordionDetails>
+      </Accordion>
     );
   }
 
   if (query.isError) {
     return (
-      <Card sx={{ mt: 2 }}>
-        <CardContent>
+      <Accordion sx={{ mt: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography variant="h6">Valaya Wise Branch Count</Typography></AccordionSummary>
+        <AccordionDetails>
           <Typography color="error">Error loading Valaya branch counts.</Typography>
-        </CardContent>
-      </Card>
+        </AccordionDetails>
+      </Accordion>
     );
   }
 
   return (
-    <Card sx={{ mt: 2 }}>
-      <CardContent>
-        <Typography variant="h6" component="div" sx={{ mb: 2 }}>
-          Valaya Wise Branch Count
-        </Typography>
-
+    <Accordion sx={{ mt: 2 }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: "100%", pr: 1 }}>
+          <Typography variant="h6">Valaya Wise Branch Count</Typography>
+          <Typography color="text.secondary">{valayaCounts.reduce((total, valaya) => total + valaya.total, 0)} branches</Typography>
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails>
         {valayaCounts.length === 0 ? (
           <Typography color="text.secondary">No branches found.</Typography>
         ) : (
           <Grid container spacing={2}>
             {valayaCounts.map((valaya) => (
-              <Grid item xs={12} md={6} lg={4} key={valaya.valayaKey}>
+              <Grid item xs={12} md={6} key={valaya.valayaKey}>
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                     <Typography variant="subtitle1">{valaya.valayaName}</Typography>
@@ -168,7 +179,7 @@ export const ValayaBranchCounts: React.FC = () => {
             ))}
           </Grid>
         )}
-      </CardContent>
-    </Card>
+      </AccordionDetails>
+    </Accordion>
   );
 };

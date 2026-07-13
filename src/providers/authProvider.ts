@@ -39,7 +39,7 @@ const VALAYA_ADMIN_RESOURCES = [
   "master_valayas",
 ];
 
-const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states"];
+const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications"];
 
 const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
   const { data: authData, error: authError } =
@@ -68,7 +68,7 @@ const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
     ...authData.user,
     ...userProfile,
     valaya_code: valayaScope.valayaCode,
-    valaya_name: valayaScope.valayaName,
+    valaya_name: valayaScope.valayaNameEn,
     accessible_valaya_rows: valayaScope.valayaRows,
     accessible_valaya_ids: valayaScope.valayaRows.map((row) => row.id),
     accessible_district_ids: valayaScope.districtIds,
@@ -167,7 +167,7 @@ export const authProvider = {
     if (error) return { success: false, error };
     return { success: true };
   },
-  can: async ({ resource, action: _action, params: _params }: { resource: string; action: string; params: any }) => {
+  can: async ({ resource, action: _action, params: _params }: { resource?: string; action: string; params?: unknown }) => {
     const identity = await getCurrentUserProfile();
 
     if (!identity) {
@@ -188,7 +188,7 @@ export const authProvider = {
       return { can: true };
     }
 
-    if (SUPER_ADMIN_ONLY_RESOURCES.includes(resource)) {
+    if (!resource || SUPER_ADMIN_ONLY_RESOURCES.includes(resource)) {
       return { can: false };
     }
 

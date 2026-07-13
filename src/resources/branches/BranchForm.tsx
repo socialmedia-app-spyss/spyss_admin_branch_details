@@ -17,11 +17,14 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { supabaseClient } from "../../supabaseClient";
 import {
   getDistinctValayaOptions,
+  getLocalizedValayaName,
   getMatchingValayaIdForDistrict,
   type ValayaOption,
   type ValayaScopeRow,
 } from "../../services/valayaScope";
 import { resolveGoogleMapLink } from "../../utils/mapLinkResolver";
+import { getLocalizedName } from "../../utils/i18n";
+import { useLanguage } from "../../hooks/useLanguage";
 import type {
   BranchCreateInput,
   MasterBatch,
@@ -68,13 +71,48 @@ const emptyOptions: MasterOptions = {
   mediums: [],
 };
 
+type MasterQueryResult<T> = {
+  data: T[] | null;
+  error: unknown;
+};
+
+const fetchActiveMasterOptions = async <T,>(
+    table: string,
+    namePrefix: string,
+): Promise<T[]> => {
+  const result = await supabaseClient
+      .from(table)
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order") as unknown as MasterQueryResult<Record<string, unknown>>;
+
+  if (result.error) {
+    console.error(`BranchForm: Error fetching ${table}:`, result.error);
+    return [];
+  }
+
+  return (result.data ?? []).map((row) => {
+    const englishKey = `${namePrefix}_name_en`;
+    const kannadaKey = `${namePrefix}_name_kn`;
+    const legacyKey = `${namePrefix}_name`;
+    const englishName = row[englishKey] ?? row[legacyKey] ?? "";
+    const kannadaName = row[kannadaKey] ?? row[legacyKey] ?? englishName;
+
+    return {
+      ...row,
+      [englishKey]: englishName,
+      [kannadaKey]: kannadaName,
+    } as T;
+  });
+};
+
 const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0"));
 const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0"));
 const ampm = ["AM", "PM"];
 export const classDayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export const normalizeClassDays = (days?: string[] | null) =>
-  classDayOptions.filter((day) => days?.includes(day));
+    classDayOptions.filter((day) => days?.includes(day));
 
 const convertToMinutes = (hour: string, minute: string, period: string): number => {
   let h = parseInt(hour, 10);
@@ -90,26 +128,31 @@ const convertToMinutes = (hour: string, minute: string, period: string): number 
 };
 
 const sortByDisplayOrder = <T extends { display_order: number }>(records: T[] | null) =>
-  [...(records ?? [])].sort((a, b) => a.display_order - b.display_order);
+    [...(records ?? [])].sort((a, b) => a.display_order - b.display_order);
 
 const normalizeLabel = (value: string) => value.trim().toLowerCase().replace(/[\s_-]+/g, "");
 
 const matchesOption = (value: string, expected: string) => normalizeLabel(value) === normalizeLabel(expected);
 
-const findByNameOrCode = <T extends object>(
-  records: T[],
-  expected: string,
-  nameKey: keyof T,
-  codeKey: keyof T,
+/**
+ * Finds a master record by its English name column (*_name_en) OR its code.
+ * Always compares against the English name so defaults like "Karnataka",
+ * "Kannada", "Active", "Morning" work regardless of the active UI language.
+ */
+const findByEnglishNameOrCode = <T extends object>(
+    records: T[],
+    expected: string,
+    nameEnKey: keyof T,
+    codeKey: keyof T,
 ) =>
-  records.find((record) => {
-    const name = record[nameKey];
-    const code = record[codeKey];
-    return (
-      (typeof name === "string" && matchesOption(name, expected)) ||
-      (typeof code === "string" && matchesOption(code, expected))
-    );
-  });
+    records.find((record) => {
+      const nameEn = record[nameEnKey];
+      const code = record[codeKey];
+      return (
+          (typeof nameEn === "string" && matchesOption(nameEn, expected)) ||
+          (typeof code === "string" && matchesOption(code, expected))
+      );
+    });
 
 const getBatchNameFromStartTime = (hour: string, minute: string, period: string) => {
   const startTimeInMinutes = convertToMinutes(hour, minute, period);
@@ -176,6 +219,37 @@ const validateBranchName = (value: string) => {
   return true;
 };
 
+const englishTextPattern = /^[A-Za-z0-9\s.,#/'()&:-]+$/;
+const kannadaTextPattern = /^[\u0C80-\u0CFF\u200C\u200D0-9\s.,#/'()&:-]+$/;
+
+const validateEnglishText = (value?: string | null) => {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    return true;
+  }
+
+  if (!/[A-Za-z]/.test(text) || !englishTextPattern.test(text)) {
+    return "Enter this field in English only.";
+  }
+
+  return true;
+};
+
+const validateKannadaText = (value?: string | null) => {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    return true;
+  }
+
+  if (!/[\u0C80-\u0CFF]/.test(text) || !kannadaTextPattern.test(text)) {
+    return "ಈ ಕ್ಷೇತ್ರವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಮಾತ್ರ ನಮೂದಿಸಿ.";
+  }
+
+  return true;
+};
+
 const validatePhoneNumber = (value?: string | null) => {
   const phoneNumber = String(value ?? "").trim();
 
@@ -228,16 +302,16 @@ type LocationDetailsMessage = {
 };
 
 export const BranchForm = ({
-  register,
-  control,
-  errors,
-  setValue,
-  watch,
-  selectedStateId,
-  selectedDistrictId,
-  applyDefaults = true,
-  initialClassTimings,
-}: BranchFormProps) => {
+                             register,
+                             control,
+                             errors,
+                             setValue,
+                             watch,
+                             selectedStateId,
+                             selectedDistrictId,
+                             applyDefaults = true,
+                             initialClassTimings,
+                           }: BranchFormProps) => {
   const [options, setOptions] = useState<MasterOptions>(emptyOptions);
   const [startHour, setStartHour] = useState("");
   const [startMinute, setStartMinute] = useState("");
@@ -260,6 +334,7 @@ export const BranchForm = ({
   const timingSource = classTimings || initialClassTimings;
   const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
+  const { language } = useLanguage();
 
   useEffect(() => {
     const fetchMasterOptions = async () => {
@@ -273,61 +348,68 @@ export const BranchForm = ({
         mediums,
         distinctValayas,
       ] = await Promise.all([
-        supabaseClient.from("master_categories").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_batches").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_states").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_districts").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_valayas").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_branch_statuses").select("*").eq("is_active", true).order("display_order"),
-        supabaseClient.from("master_mediums").select("*").eq("is_active", true).order("display_order"),
+        fetchActiveMasterOptions<MasterCategory>(
+            "master_categories",
+            "category",
+        ),
+        fetchActiveMasterOptions<MasterBatch>(
+            "master_batches",
+            "batch",
+        ),
+        fetchActiveMasterOptions<MasterState>(
+            "master_states",
+            "state",
+        ),
+        fetchActiveMasterOptions<MasterDistrict>(
+            "master_districts",
+            "district",
+        ),
+        fetchActiveMasterOptions<MasterValaya>(
+            "master_valayas",
+            "valaya",
+        ),
+        fetchActiveMasterOptions<MasterBranchStatus>(
+            "master_branch_statuses",
+            "status",
+        ),
+        fetchActiveMasterOptions<MasterMedium>(
+            "master_mediums",
+            "medium",
+        ),
         getDistinctValayaOptions(),
       ]);
 
       setOptions({
-        categories: sortByDisplayOrder(categories.data as MasterCategory[] | null),
-        batches: sortByDisplayOrder(batches.data as MasterBatch[] | null),
-        states: sortByDisplayOrder(states.data as MasterState[] | null),
-        districts: sortByDisplayOrder(districts.data as MasterDistrict[] | null),
-        valayas: sortByDisplayOrder(valayas.data as MasterValaya[] | null),
-        statuses: sortByDisplayOrder(statuses.data as MasterBranchStatus[] | null),
-        mediums: sortByDisplayOrder(mediums.data as MasterMedium[] | null),
+        categories: sortByDisplayOrder(categories),
+        batches: sortByDisplayOrder(batches),
+        states: sortByDisplayOrder(states),
+        districts: sortByDisplayOrder(districts),
+        valayas: sortByDisplayOrder(valayas),
+        statuses: sortByDisplayOrder(statuses),
+        mediums: sortByDisplayOrder(mediums),
       });
       setValayaOptions(distinctValayas);
     };
 
     fetchMasterOptions();
   }, []);
-
+  // Apply form defaults — always search by English name or code, never Kannada text.
   useEffect(() => {
     if (!applyDefaults || defaultValuesApplied.current || options.categories.length === 0) {
       return;
     }
 
-    const category = findByNameOrCode(options.categories, "General", "category_name", "category_code");
-    const batch = findByNameOrCode(options.batches, "Morning", "batch_name", "batch_code");
-    const state = findByNameOrCode(options.states, "Karnataka", "state_name", "state_code");
-    const status = findByNameOrCode(options.statuses, "Active", "status_name", "status_code");
-    const medium = findByNameOrCode(options.mediums, "Kannada", "medium_name", "medium_code");
+    const category = findByEnglishNameOrCode(options.categories, "General", "category_name_en", "category_code");
+    const batch    = findByEnglishNameOrCode(options.batches,    "Morning",   "batch_name_en",    "batch_code");
+    const state    = findByEnglishNameOrCode(options.states,     "Karnataka", "state_name_en",    "state_code");
+    const status   = findByEnglishNameOrCode(options.statuses,   "Active",    "status_name_en",   "status_code");
+    const medium   = findByEnglishNameOrCode(options.mediums,    "Kannada",   "medium_name_en",   "medium_code");
 
-    if (category) {
-      setValue("category_id", category.id as string);
-    }
-
-    if (batch) {
-      setValue("batch_id", batch.id as string);
-    }
-
-    if (state && !selectedStateId) {
-      setValue("state_id", state.id as string);
-    }
-
-    if (status) {
-      setValue("status_id", status.id as string);
-    }
-
-    if (medium) {
-      setValue("medium_id", medium.id as string);
-    }
+    if (category) setValue("category_id", category.id as string);
+    if (batch)    setValue("batch_id",    batch.id as string);
+    if (state && !selectedStateId) setValue("state_id", state.id as string);
+    if (status)   setValue("status_id",   status.id as string);
+    if (medium)   setValue("medium_id",   medium.id as string);
 
     defaultValuesApplied.current = true;
   }, [applyDefaults, options.batches, options.categories, options.mediums, options.states, options.statuses, selectedStateId, setValue]);
@@ -364,6 +446,7 @@ export const BranchForm = ({
     }
   }, [applyDefaults, endAmPm, endHour, endMinute, setValue, startAmPm, startHour, startMinute]);
 
+  // Auto-select batch from start time — always match against English batch name.
   useEffect(() => {
     if (!applyDefaults && !classTimingsParsed.current) {
       return;
@@ -379,7 +462,7 @@ export const BranchForm = ({
       return;
     }
 
-    const batch = findByNameOrCode(options.batches, batchName, "batch_name", "batch_code");
+    const batch = findByEnglishNameOrCode(options.batches, batchName, "batch_name_en", "batch_code");
 
     if (batch) {
       setValue("batch_id", batch.id as string, { shouldValidate: true });
@@ -390,14 +473,11 @@ export const BranchForm = ({
     if (!startHour || !startMinute || !startAmPm || !endHour || !endMinute || !endAmPm) {
       return "All start and end time components must be selected.";
     }
-
     const startTimeInMinutes = convertToMinutes(startHour, startMinute, startAmPm);
     const endTimeInMinutes = convertToMinutes(endHour, endMinute, endAmPm);
-
     if (endTimeInMinutes <= startTimeInMinutes) {
       return "End time must be greater than start time.";
     }
-
     return endTimeInMinutes - startTimeInMinutes >= 45 ? true : "Class timing must be at least 45 minutes.";
   }, [endAmPm, endHour, endMinute, startAmPm, startHour, startMinute]);
 
@@ -405,62 +485,55 @@ export const BranchForm = ({
     if (isValayaAdmin) {
       return identity?.accessible_valaya_rows ?? [];
     }
-
     if (!selectedValayaCode) {
       return [];
     }
-
     return options.valayas.filter((valaya) => valaya.valaya_code === selectedValayaCode);
   }, [identity?.accessible_valaya_rows, isValayaAdmin, options.valayas, selectedValayaCode]);
 
   const filteredDistricts = useMemo(() => {
     const districtsForState = options.districts.filter((district) => district.state_id === selectedStateId);
-
     if (isValayaAdmin || selectedValayaCode) {
       const allowedDistrictIds = new Set(valayaRowsForSelectedCode.map((row) => row.district_id));
       return districtsForState.filter((district) => allowedDistrictIds.has(district.id));
     }
-
     return districtsForState;
   }, [isValayaAdmin, options.districts, selectedStateId, selectedValayaCode, valayaRowsForSelectedCode]);
 
   const safeDistrictValue = filteredDistricts.some((district) => district.id === selectedDistrictId)
-    ? selectedDistrictId ?? ""
-    : "";
+      ? selectedDistrictId ?? ""
+      : "";
 
   const displayedValayaOptions = useMemo(() => {
     if (!selectedValayaCode || valayaOptions.some((valaya) => valaya.valaya_code === selectedValayaCode)) {
       return valayaOptions;
     }
-
     return [
       ...valayaOptions,
       {
         id: selectedValayaId || selectedValayaCode,
-        valaya_name: identity?.valaya_name || selectedValayaCode,
+        valaya_name_en: identity?.valaya_name || selectedValayaCode,
+        valaya_name_kn: identity?.valaya_name || selectedValayaCode,
         valaya_code: selectedValayaCode,
       },
     ];
   }, [identity?.valaya_name, selectedValayaCode, selectedValayaId, valayaOptions]);
+
   const safeValayaCode = displayedValayaOptions.some((valaya) => valaya.valaya_code === selectedValayaCode)
-    ? selectedValayaCode
-    : "";
+      ? selectedValayaCode
+      : "";
 
   const coordinateMapLink = useMemo(() => {
     const rawLatitude: unknown = latitude;
     const rawLongitude: unknown = longitude;
-
     if (rawLatitude === "" || rawLatitude === null || rawLatitude === undefined || rawLongitude === "" || rawLongitude === null || rawLongitude === undefined) {
       return "";
     }
-
     const lat = Number(rawLatitude);
     const lng = Number(rawLongitude);
-
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return "";
     }
-
     return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   }, [latitude, longitude]);
 
@@ -469,70 +542,48 @@ export const BranchForm = ({
 
   const handleFetchLocationDetails = async () => {
     setLocationDetailsMessage(null);
-
     if (!trimmedGoogleLocationLink) {
       setLocationDetailsMessage({ error: "Please enter Google location link first." });
       return;
     }
-
     setIsFetchingLocationDetails(true);
-
     try {
       const result = await resolveGoogleMapLink(trimmedGoogleLocationLink);
-
       if (!result.success) {
         const isNotMapsLocation = result.error?.includes("does not open a Google Maps location");
         setLocationDetailsMessage({
           error: isNotMapsLocation
-            ? "This link is not a Google Maps location. Please open the place in Google Maps, tap Share, copy the Maps link, and try again."
-            : result.error || "Could not fetch location details.",
+              ? "This link is not a Google Maps location. Please open the place in Google Maps, tap Share, copy the Maps link, and try again."
+              : result.error || "Could not fetch location details.",
         });
         return;
       }
-
-      if (result.address) {
-        setValue("full_address", result.address, { shouldDirty: true, shouldValidate: true });
-      }
-
-      if (result.area) {
-        setValue("area", result.area, { shouldDirty: true, shouldValidate: true });
-      }
-
-      if (result.pincode) {
-        setValue("pincode", result.pincode, { shouldDirty: true, shouldValidate: true });
-      }
-
+      if (result.address) setValue("full_address_en", result.address, { shouldDirty: true, shouldValidate: true });
+      if (result.area)    setValue("area_en",         result.area,    { shouldDirty: true, shouldValidate: true });
+      if (result.pincode) setValue("pincode",       result.pincode, { shouldDirty: true, shouldValidate: true });
       const foundDetails = [
-        result.address ? "address" : null,
-        result.area ? "area" : null,
-        result.pincode ? "pincode" : null,
-        result.latitude !== null && result.latitude !== undefined ? "latitude" : null,
-        result.longitude !== null && result.longitude !== undefined ? "longitude" : null,
-      ].filter((detail): detail is string => Boolean(detail));
+        result.address   ? "address"   : null,
+        result.area      ? "area"      : null,
+        result.pincode   ? "pincode"   : null,
+        result.latitude  != null ? "latitude"  : null,
+        result.longitude != null ? "longitude" : null,
+      ].filter((d): d is string => Boolean(d));
       const missingDetails = [
-        result.address ? null : "address",
-        result.area ? null : "area",
-        result.pincode ? null : "pincode",
-        result.latitude !== null && result.latitude !== undefined ? null : "latitude",
-        result.longitude !== null && result.longitude !== undefined ? null : "longitude",
-      ].filter((detail): detail is string => Boolean(detail));
-
-      if (result.latitude !== null && result.latitude !== undefined) {
-        setValue("latitude", result.latitude, { shouldDirty: true, shouldValidate: true });
-      }
-
-      if (result.longitude !== null && result.longitude !== undefined) {
-        setValue("longitude", result.longitude, { shouldDirty: true, shouldValidate: true });
-      }
-
+        result.address   ? null : "address",
+        result.area      ? null : "area",
+        result.pincode   ? null : "pincode",
+        result.latitude  != null ? null : "latitude",
+        result.longitude != null ? null : "longitude",
+      ].filter((d): d is string => Boolean(d));
+      if (result.latitude  != null) setValue("latitude",  result.latitude,  { shouldDirty: true, shouldValidate: true });
+      if (result.longitude != null) setValue("longitude", result.longitude, { shouldDirty: true, shouldValidate: true });
       if (missingDetails.length > 0) {
         setLocationDetailsMessage({
-          found: foundDetails.length > 0 ? `Found ${formatLocationDetailsList(foundDetails)}.` : undefined,
+          found:   foundDetails.length > 0 ? `Found ${formatLocationDetailsList(foundDetails)}.` : undefined,
           missing: `Could not find ${formatLocationDetailsList(missingDetails)} in this link. Please fill the missing details manually or paste another Google Maps link.`,
         });
         return;
       }
-
       setLocationDetailsMessage({ found: `Found ${formatLocationDetailsList(foundDetails)} in this link.` });
     } catch (error) {
       console.error("Fetch location details error:", error);
@@ -543,10 +594,7 @@ export const BranchForm = ({
   };
 
   useEffect(() => {
-    if (!identity) {
-      return;
-    }
-
+    if (!identity) return;
     console.log("BranchForm Valaya scope", {
       role: identity.role,
       userValayaId: identity.valaya_id,
@@ -561,7 +609,6 @@ export const BranchForm = ({
       setSelectedValayaCode(identity.valaya_code);
       return;
     }
-
     if (selectedValayaId && options.valayas.length > 0) {
       const selectedValaya = options.valayas.find((valaya) => valaya.id === selectedValayaId);
       setSelectedValayaCode(selectedValaya?.valaya_code ?? "");
@@ -569,589 +616,678 @@ export const BranchForm = ({
   }, [identity?.valaya_code, isValayaAdmin, options.valayas, selectedValayaId]);
 
   useEffect(() => {
-    if (!selectedDistrictId || valayaRowsForSelectedCode.length === 0) {
-      return;
-    }
-
+    if (!selectedDistrictId || valayaRowsForSelectedCode.length === 0) return;
     const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, selectedDistrictId);
-
     if (matchingValayaId && matchingValayaId !== selectedValayaId) {
       setValue("valaya_id", matchingValayaId, { shouldDirty: true, shouldValidate: true });
     }
   }, [selectedDistrictId, selectedValayaId, setValue, valayaRowsForSelectedCode]);
 
   return (
-    <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <input type="hidden" {...register("medium_id", { required: "Medium is required." })} />
+      <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <input type="hidden" {...register("medium_id", { required: "Medium is required." })} />
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("country", { required: "This field is required" })}
-            label="Country *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: true }}
-            error={!!errors.country}
-            helperText={errors.country?.message || "Defaults to India."}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.state_id}>
-            <InputLabel id="state-label">State *</InputLabel>
-            <Controller
-              name="state_id"
-              control={control}
-              rules={{ required: "This field is required" }}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  labelId="state-label"
-                  label="State *"
-                  value={field.value || ""}
-                  onChange={(event) => {
-                    field.onChange(event);
-                    setSelectedValayaCode("");
-                    setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
-                    setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
-                  }}
-                >
-                  <MenuItem value="">Select state</MenuItem>
-                  {options.states.map((state) => (
-                    <MenuItem key={state.id} value={state.id}>
-                      {state.state_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("country", { required: "This field is required" })}
+                label="Country *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                InputProps={{ readOnly: true }}
+                error={!!errors.country}
+                helperText={errors.country?.message || "Defaults to India."}
             />
-            <FormHelperText>{errors.state_id?.message || "Defaults to Karnataka. Select another state only if the branch is outside Karnataka."}</FormHelperText>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.valaya_id}>
-            <InputLabel id="valaya-label">Valaya *</InputLabel>
-            <Controller
-              name="valaya_id"
-              control={control}
-              rules={{
-                validate: (value) =>
-                  Boolean(value) ||
-                  "Select a Valaya and district combination.",
-              }}
-              render={() => (
-                <Select
-                  labelId="valaya-label"
-                  label="Valaya *"
-                  value={safeValayaCode}
-                  disabled={isValayaAdmin}
-                  onChange={(event) => {
-                    const valayaCode = event.target.value;
-                    setSelectedValayaCode(valayaCode);
-                    setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
-                    // Removed: setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
-                  }}
-                >
-                  <MenuItem value="">Select Valaya</MenuItem>
-                  {displayedValayaOptions.map((valaya) => (
-                    <MenuItem key={valaya.valaya_code} value={valaya.valaya_code}>
-                      {valaya.valaya_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-            />
-            <FormHelperText>
-              {errors.valaya_id?.message ||
-                (isValayaAdmin
-                  ? "Valaya is fixed from your admin access. Select the district for this Valaya."
-                  : "Choose a Valaya first, then select the district.")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.district_id}>
-            <InputLabel id="district-label">District *</InputLabel>
-            <Controller
-              name="district_id"
-              control={control}
-              rules={{ required: "This field is required" }}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  labelId="district-label"
-                  label="District *"
-                  value={safeDistrictValue}
-                  disabled={!selectedStateId || ((isSuperAdmin || !isValayaAdmin) && !selectedValayaCode)}
-                  onChange={(event) => {
-                    const districtId = event.target.value;
-                    field.onChange(districtId);
-                    setValue("district_id", districtId, { shouldDirty: true, shouldValidate: true });
-                    const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, districtId);
-                    setValue("valaya_id", matchingValayaId ?? "", { shouldDirty: true, shouldValidate: true });
-                  }}
-                >
-                  <MenuItem value="">Select district</MenuItem>
-                  {filteredDistricts.map((district) => (
-                    <MenuItem key={district.id} value={district.id}>
-                      {district.district_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-            />
-            <FormHelperText>{errors.district_id?.message || "Select the district where the branch is located."}</FormHelperText>
-          </FormControl>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
-          <TextField
-            {...register("branch_name", {
-              required: "Branch name is required.",
-              setValueAs: (value) => normalizeBranchName(String(value ?? "")),
-              validate: validateBranchName,
-            })}
-            label="Branch Name *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.branch_name}
-            helperText={
-              errors.branch_name?.message ||
-              "Use title case with English letters and spaces only, for example 'SPYSS Mysuru Central'."
-            }
-          />
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <TextField
-            {...register("branch_start_date", { required: "Branch start date is required." })}
-            label="Branch Start Date *"
-            fullWidth
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.branch_start_date}
-            helperText={errors.branch_start_date?.message || "Select the date on which the branch started."}
-          />
-        </Grid>
-      </Grid>
-
-      <FormControl fullWidth error={!!errors.class_timings}>
-        <Typography variant="body1" sx={{ mb: 1 }}>
-          Class Timings *
-        </Typography>
-        <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
-          <Grid container spacing={1} alignItems="center" sx={{ mb: 1 }}>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="subtitle2">Start Time</Typography>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>HH</InputLabel>
-                <Select value={startHour} label="HH" onChange={(event) => setStartHour(event.target.value)}>
-                  {hours.map((hour) => (
-                    <MenuItem key={hour} value={hour}>
-                      {hour}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>MM</InputLabel>
-                <Select value={startMinute} label="MM" onChange={(event) => setStartMinute(event.target.value)}>
-                  {minutes.map((minute) => (
-                    <MenuItem key={minute} value={minute}>
-                      {minute}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>AM/PM</InputLabel>
-                <Select value={startAmPm} label="AM/PM" onChange={(event) => setStartAmPm(event.target.value)}>
-                  {ampm.map((period) => (
-                    <MenuItem key={period} value={period}>
-                      {period}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
           </Grid>
 
-          <Grid container spacing={1} alignItems="center">
-            <Grid item xs={12} sm={3}>
-              <Typography variant="subtitle2">End Time</Typography>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>HH</InputLabel>
-                <Select value={endHour} label="HH" onChange={(event) => setEndHour(event.target.value)}>
-                  {hours.map((hour) => (
-                    <MenuItem key={hour} value={hour}>
-                      {hour}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>MM</InputLabel>
-                <Select value={endMinute} label="MM" onChange={(event) => setEndMinute(event.target.value)}>
-                  {minutes.map((minute) => (
-                    <MenuItem key={minute} value={minute}>
-                      {minute}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={4} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>AM/PM</InputLabel>
-                <Select value={endAmPm} label="AM/PM" onChange={(event) => setEndAmPm(event.target.value)}>
-                  {ampm.map((period) => (
-                    <MenuItem key={period} value={period}>
-                      {period}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.state_id}>
+              <InputLabel id="state-label">State *</InputLabel>
+              <Controller
+                  name="state_id"
+                  control={control}
+                  rules={{ required: "This field is required" }}
+                  render={({ field }) => (
+                      <Select
+                          {...field}
+                          labelId="state-label"
+                          label="State *"
+                          value={field.value || ""}
+                          onChange={(event) => {
+                            field.onChange(event);
+                            setSelectedValayaCode("");
+                            setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
+                            setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                          }}
+                      >
+                        <MenuItem value="">Select state</MenuItem>
+                        {options.states.map((state) => (
+                            <MenuItem key={state.id} value={state.id}>
+                              {getLocalizedName(state.state_name_en, state.state_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.state_id?.message || "Defaults to Karnataka. Select another state only if the branch is outside Karnataka."}</FormHelperText>
+            </FormControl>
           </Grid>
 
-          <TextField
-            {...register("class_timings", {
-              required: "Class timings are required.",
-              validate: () => timingValidationMessage,
-            })}
-            label="Final Class Timings *"
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: true }}
-            error={!!errors.class_timings}
-            helperText={errors.class_timings?.message || "Select the start and end time. The batch is calculated automatically from the start time."}
-          />
-        </Box>
-      </FormControl>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.valaya_id}>
+              <InputLabel id="valaya-label">Valaya *</InputLabel>
+              <Controller
+                  name="valaya_id"
+                  control={control}
+                  rules={{ validate: (value) => Boolean(value) || "Select a Valaya and district combination." }}
+                  render={() => (
+                      <Select
+                          labelId="valaya-label"
+                          label="Valaya *"
+                          value={safeValayaCode}
+                          disabled={isValayaAdmin}
+                          onChange={(event) => {
+                            const valayaCode = event.target.value;
+                            setSelectedValayaCode(valayaCode);
+                            setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
+                          }}
+                      >
+                        <MenuItem value="">Select Valaya</MenuItem>
+                        {displayedValayaOptions.map((valaya) => (
+                            <MenuItem key={valaya.valaya_code} value={valaya.valaya_code}>
+                              {getLocalizedValayaName(valaya, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>
+                {errors.valaya_id?.message ||
+                    (isValayaAdmin
+                        ? "Valaya is fixed from your admin access. Select the district for this Valaya."
+                        : "Choose a Valaya first, then select the district.")}
+              </FormHelperText>
+            </FormControl>
+          </Grid>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.category_id}>
-            <InputLabel id="category-label">Category *</InputLabel>
-            <Controller
-              name="category_id"
-              control={control}
-              rules={{ required: "This field is required" }}
-              render={({ field }) => (
-                <Select {...field} labelId="category-label" label="Category *" value={field.value || ""}>
-                  {options.categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {category.category_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-            />
-            <FormHelperText>{errors.category_id?.message || "Defaults to General. Change it only when the branch belongs to a different category."}</FormHelperText>
-          </FormControl>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.district_id}>
+              <InputLabel id="district-label">District *</InputLabel>
+              <Controller
+                  name="district_id"
+                  control={control}
+                  rules={{ required: "This field is required" }}
+                  render={({ field }) => (
+                      <Select
+                          {...field}
+                          labelId="district-label"
+                          label="District *"
+                          value={safeDistrictValue}
+                          disabled={!selectedStateId || ((isSuperAdmin || !isValayaAdmin) && !selectedValayaCode)}
+                          onChange={(event) => {
+                            const districtId = event.target.value;
+                            field.onChange(districtId);
+                            setValue("district_id", districtId, { shouldDirty: true, shouldValidate: true });
+                            const matchingValayaId = getMatchingValayaIdForDistrict(valayaRowsForSelectedCode, districtId);
+                            setValue("valaya_id", matchingValayaId ?? "", { shouldDirty: true, shouldValidate: true });
+                          }}
+                      >
+                        <MenuItem value="">Select district</MenuItem>
+                        {filteredDistricts.map((district) => (
+                            <MenuItem key={district.id} value={district.id}>
+                              {getLocalizedName(district.district_name_en, district.district_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.district_id?.message || "Select the district where the branch is located."}</FormHelperText>
+            </FormControl>
+          </Grid>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.batch_id}>
-            <InputLabel id="batch-label">Batch *</InputLabel>
-            <Controller
-              name="batch_id"
-              control={control}
-              rules={{ required: "This field is required" }}
-              render={({ field }) => (
-                <Select {...field} labelId="batch-label" label="Batch *" value={field.value || ""} disabled>
-                  {options.batches.map((batch) => (
-                    <MenuItem key={batch.id} value={batch.id}>
-                      {batch.batch_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={8}>
+            <TextField
+                {...register("branch_name_en", {
+                  required: "Branch name is required.",
+                  setValueAs: (value) => normalizeBranchName(String(value ?? "")),
+                  validate: validateBranchName,
+                })}
+                label="Branch Name (English) *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.branch_name_en}
+                helperText={errors.branch_name_en?.message || "Use title case with English letters and spaces only, for example 'SPYSS Mysuru Central'."}
             />
-            <FormHelperText>{errors.batch_id?.message || "Calculated automatically from the class start time: morning, afternoon, or evening."}</FormHelperText>
-          </FormControl>
+          </Grid>
+          <Grid item xs={12} md={8}>
+            <TextField
+                {...register("branch_name_kn", {
+                  required: "ಶಾಖೆಯ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
+                  setValueAs: (value) => normalizeBranchName(String(value ?? "")),
+                  validate: validateKannadaText,
+                })}
+                label="ಶಾಖೆಯ ಹೆಸರು *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.branch_name_kn}
+                helperText={errors.branch_name_kn?.message || "ಶಾಖೆಯ ಹೆಸರನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+                {...register("branch_start_date", { required: "Branch start date is required." })}
+                label="Branch Start Date *"
+                fullWidth
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.branch_start_date}
+                helperText={errors.branch_start_date?.message || "Select the date on which the branch started."}
+            />
+          </Grid>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.status_id}>
-            <InputLabel id="status-label">Status *</InputLabel>
-            <Controller
-              name="status_id"
-              control={control}
-              rules={{ required: "Status is required." }}
-              render={({ field }) => (
-                <Select {...field} labelId="status-label" label="Status *" value={field.value || ""}>
-                  {options.statuses.map((status) => (
-                    <MenuItem key={status.id} value={status.id}>
-                      {status.status_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
+        <FormControl fullWidth error={!!errors.class_timings}>
+          <Typography variant="body1" sx={{ mb: 1 }}>
+            Class Timings *
+          </Typography>
+          <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+            <Grid container spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="subtitle2">Start Time</Typography>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>HH</InputLabel>
+                  <Select value={startHour} label="HH" onChange={(event) => setStartHour(event.target.value)}>
+                    {hours.map((hour) => (
+                        <MenuItem key={hour} value={hour}>{hour}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>MM</InputLabel>
+                  <Select value={startMinute} label="MM" onChange={(event) => setStartMinute(event.target.value)}>
+                    {minutes.map((minute) => (
+                        <MenuItem key={minute} value={minute}>{minute}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>AM/PM</InputLabel>
+                  <Select value={startAmPm} label="AM/PM" onChange={(event) => setStartAmPm(event.target.value)}>
+                    {ampm.map((period) => (
+                        <MenuItem key={period} value={period}>{period}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            <Grid container spacing={1} alignItems="center">
+              <Grid item xs={12} sm={3}>
+                <Typography variant="subtitle2">End Time</Typography>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>HH</InputLabel>
+                  <Select value={endHour} label="HH" onChange={(event) => setEndHour(event.target.value)}>
+                    {hours.map((hour) => (
+                        <MenuItem key={hour} value={hour}>{hour}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>MM</InputLabel>
+                  <Select value={endMinute} label="MM" onChange={(event) => setEndMinute(event.target.value)}>
+                    {minutes.map((minute) => (
+                        <MenuItem key={minute} value={minute}>{minute}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4} sm={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>AM/PM</InputLabel>
+                  <Select value={endAmPm} label="AM/PM" onChange={(event) => setEndAmPm(event.target.value)}>
+                    {ampm.map((period) => (
+                        <MenuItem key={period} value={period}>{period}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            <TextField
+                {...register("class_timings", {
+                  required: "Class timings are required.",
+                  validate: () => timingValidationMessage,
+                })}
+                label="Final Class Timings *"
+                fullWidth
+                margin="normal"
+                InputLabelProps={{ shrink: true }}
+                InputProps={{ readOnly: true }}
+                error={!!errors.class_timings}
+                helperText={errors.class_timings?.message || "Select the start and end time. The batch is calculated automatically from the start time."}
             />
-            <FormHelperText>{errors.status_id?.message || "Select the current branch status."}</FormHelperText>
-          </FormControl>
-        </Grid>
-      </Grid>
-
-      <FormControl fullWidth error={!!errors.class_days}>
-        <InputLabel id="class-days-label">Class Days *</InputLabel>
-        <Controller
-          name="class_days"
-          control={control}
-          rules={{ required: "This field is required" }}
-          render={({ field }) => (
-            <Select
-              multiple
-              labelId="class-days-label"
-              label="Class Days *"
-              value={normalizeClassDays(field.value || [])}
-              onChange={(event) => {
-                const value = event.target.value;
-                field.onChange(normalizeClassDays(typeof value === "string" ? value.split(",") : value));
-              }}
-            >
-              {classDayOptions.map((day) => (
-                <MenuItem key={day} value={day}>
-                  {day}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-        />
-        <FormHelperText>
-          {errors.class_days?.message ||
-            "Select only the days on which classes are conducted. For example, if classes are held only on Saturday and Sunday, select only Saturday and Sunday."}
-        </FormHelperText>
-      </FormControl>
-
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-        <Box sx={{ display: "flex", gap: 1, width: "100%", alignItems: "flex-start", flexDirection: { xs: "column", sm: "row" } }}>
-          <TextField
-            {...register("google_location_link", {
-              required: "Google location link is required.",
-              setValueAs: (value) => String(value ?? "").trim(),
-              validate: (value) =>
-                String(value ?? "").startsWith("https://") || "Google location link must start with https://.",
-            })}
-            label="Google Location Link *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.google_location_link}
-            helperText={errors.google_location_link?.message || "Paste the Google Maps link, then fetch the location details."}
-          />
-          <Button
-            variant="outlined"
-            onClick={handleFetchLocationDetails}
-            disabled={isFetchingLocationDetails || !trimmedGoogleLocationLink}
-            sx={{ minWidth: 260, mt: { xs: 0, sm: 1 } }}
-          >
-            {isFetchingLocationDetails ? "Fetching..." : "Fetch Address, Area, Pincode, Lat/Long"}
-          </Button>
-        </Box>
-        {locationDetailsMessage && (
-          <Box>
-            {locationDetailsMessage.found && (
-              <Typography variant="body2" color="success.main">
-                {locationDetailsMessage.found}
-              </Typography>
-            )}
-            {locationDetailsMessage.missing && (
-              <Typography variant="body2" color="error">
-                {locationDetailsMessage.missing}
-              </Typography>
-            )}
-            {locationDetailsMessage.error && (
-              <Typography variant="body2" color="error">
-                {locationDetailsMessage.error}
-              </Typography>
-            )}
           </Box>
-        )}
-        <Button
-          component="a"
-          href={canOpenGoogleLocationLink ? trimmedGoogleLocationLink : undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outlined"
-          startIcon={<OpenInNewIcon />}
-          disabled={!canOpenGoogleLocationLink}
-        >
-          Test Google Location Link
-        </Button>
-      </Box>
+        </FormControl>
 
-      <TextField
-        {...register("full_address", { required: "This field is required" })}
-        label="Full Address *"
-        fullWidth
-        multiline
-        minRows={3}
-        InputLabelProps={{ shrink: true }}
-        error={!!errors.full_address}
-        helperText={errors.full_address?.message || "Enter the complete address, including landmark or building details if available."}
-      />
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.category_id}>
+              <InputLabel id="category-label">Category *</InputLabel>
+              <Controller
+                  name="category_id"
+                  control={control}
+                  rules={{ required: "This field is required" }}
+                  render={({ field }) => (
+                      <Select {...field} labelId="category-label" label="Category *" value={field.value || ""}>
+                        {options.categories.map((category) => (
+                            <MenuItem key={category.id} value={category.id}>
+                              {getLocalizedName(category.category_name_en, category.category_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.category_id?.message || "Defaults to General. Change it only when the branch belongs to a different category."}</FormHelperText>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.batch_id}>
+              <InputLabel id="batch-label">Batch *</InputLabel>
+              <Controller
+                  name="batch_id"
+                  control={control}
+                  rules={{ required: "This field is required" }}
+                  render={({ field }) => (
+                      <Select {...field} labelId="batch-label" label="Batch *" value={field.value || ""} disabled>
+                        {options.batches.map((batch) => (
+                            <MenuItem key={batch.id} value={batch.id}>
+                              {getLocalizedName(batch.batch_name_en, batch.batch_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.batch_id?.message || "Calculated automatically from the class start time: morning, afternoon, or evening."}</FormHelperText>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={!!errors.status_id}>
+              <InputLabel id="status-label">Status *</InputLabel>
+              <Controller
+                  name="status_id"
+                  control={control}
+                  rules={{ required: "Status is required." }}
+                  render={({ field }) => (
+                      <Select {...field} labelId="status-label" label="Status *" value={field.value || ""}>
+                        {options.statuses.map((status) => (
+                            <MenuItem key={status.id} value={status.id}>
+                              {getLocalizedName(status.status_name_en, status.status_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.status_id?.message || "Select the current branch status."}</FormHelperText>
+            </FormControl>
+          </Grid>
+        </Grid>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("area", {
-              required: "Area is required.",
-              setValueAs: (value) => String(value ?? "").trim().replace(/\s+/g, " "),
-              minLength: { value: 3, message: "Area must be at least 3 characters." },
-              maxLength: { value: 30, message: "Area must be 30 characters or fewer." },
-            })}
-            label="Area *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.area}
-            helperText={errors.area?.message || "Enter the locality, neighborhood, or area name."}
+        <FormControl fullWidth error={!!errors.class_days}>
+          <InputLabel id="class-days-label">Class Days *</InputLabel>
+          <Controller
+              name="class_days"
+              control={control}
+              rules={{ required: "This field is required" }}
+              render={({ field }) => (
+                  <Select
+                      multiple
+                      labelId="class-days-label"
+                      label="Class Days *"
+                      value={normalizeClassDays(field.value || [])}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        field.onChange(normalizeClassDays(typeof value === "string" ? value.split(",") : value));
+                      }}
+                  >
+                    {classDayOptions.map((day) => (
+                        <MenuItem key={day} value={day}>{day}</MenuItem>
+                    ))}
+                  </Select>
+              )}
           />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("pincode", {
-              required: "Pincode is required.",
-              setValueAs: (value) => String(value ?? "").trim(),
-              validate: (value) => /^\d{6}$/.test(String(value ?? "")) || "Pincode must be exactly 6 digits.",
-            })}
-            label="Pincode *"
-            fullWidth
-            inputProps={{ inputMode: "numeric", maxLength: 6 }}
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.pincode}
-            helperText={errors.pincode?.message || "Enter the 6-digit postal pincode."}
-          />
-        </Grid>
-      </Grid>
+          <FormHelperText>
+            {errors.class_days?.message ||
+                "Select only the days on which classes are conducted. For example, if classes are held only on Saturday and Sunday, select only Saturday and Sunday."}
+          </FormHelperText>
+        </FormControl>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("latitude", {
-              setValueAs: normalizeOptionalNumber,
-              validate: (value) =>
-                value === null ||
-                value === undefined ||
-                (typeof value === "number" && !Number.isNaN(value) && value >= -90 && value <= 90) ||
-                "Latitude must be between -90 and 90.",
-            })}
-            label="Latitude"
-            fullWidth
-            type="text"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ inputMode: "decimal" }}
-            error={!!errors.latitude}
-            helperText={errors.latitude?.message || "Optional. Latitude must be between -90 and 90."}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("longitude", {
-              setValueAs: normalizeOptionalNumber,
-              validate: (value) =>
-                value === null ||
-                value === undefined ||
-                (typeof value === "number" && !Number.isNaN(value) && value >= -180 && value <= 180) ||
-                "Longitude must be between -180 and 180.",
-            })}
-            label="Longitude"
-            fullWidth
-            type="text"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ inputMode: "decimal" }}
-            error={!!errors.longitude}
-            helperText={errors.longitude?.message || "Optional. Longitude must be between -180 and 180."}
-          />
-        </Grid>
-        <Grid item xs={12}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1, width: "100%", alignItems: "flex-start", flexDirection: { xs: "column", sm: "row" } }}>
+            <TextField
+                {...register("google_location_link", {
+                  required: "Google location link is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: (value) =>
+                      String(value ?? "").startsWith("https://") || "Google location link must start with https://.",
+                })}
+                label="Google Location Link *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.google_location_link}
+                helperText={errors.google_location_link?.message || "Paste the Google Maps link, then fetch the location details."}
+            />
+            <Button
+                variant="outlined"
+                onClick={handleFetchLocationDetails}
+                disabled={isFetchingLocationDetails || !trimmedGoogleLocationLink}
+                sx={{ minWidth: 260, mt: { xs: 0, sm: 1 } }}
+            >
+              {isFetchingLocationDetails ? "Fetching..." : "Fetch Address, Area, Pincode, Lat/Long"}
+            </Button>
+          </Box>
+          {locationDetailsMessage && (
+              <Box>
+                {locationDetailsMessage.found && (
+                    <Typography variant="body2" color="success.main">
+                      {locationDetailsMessage.found}
+                    </Typography>
+                )}
+                {locationDetailsMessage.missing && (
+                    <Typography variant="body2" color="error">
+                      {locationDetailsMessage.missing}
+                    </Typography>
+                )}
+                {locationDetailsMessage.error && (
+                    <Typography variant="body2" color="error">
+                      {locationDetailsMessage.error}
+                    </Typography>
+                )}
+              </Box>
+          )}
           <Button
-            component="a"
-            href={coordinateMapLink || undefined}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outlined"
-            startIcon={<OpenInNewIcon />}
-            disabled={!coordinateMapLink}
+              component="a"
+              href={canOpenGoogleLocationLink ? trimmedGoogleLocationLink : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outlined"
+              startIcon={<OpenInNewIcon />}
+              disabled={!canOpenGoogleLocationLink}
           >
-            Test Latitude and Longitude in Google Maps
+            Test Google Location Link
           </Button>
-        </Grid>
-      </Grid>
+        </Box>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("mukhyashikshak", { required: "This field is required" })}
-            label="Mukhyashikshak *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.mukhyashikshak}
-            helperText={errors.mukhyashikshak?.message || "Enter the name of the mukhyashikshak responsible for this branch."}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("email_id", {
-              required: "Email is required.",
+        <TextField
+            {...register("full_address_en", {
+              required: "Full address (English) is required.",
               setValueAs: (value) => String(value ?? "").trim(),
-              validate: (value) =>
-                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value)) ||
-                "Enter a valid email address.",
+              validate: validateEnglishText,
             })}
-            label="Email *"
+            label="Full Address (English) *"
             fullWidth
-            type="email"
+            multiline
+            minRows={3}
             InputLabelProps={{ shrink: true }}
-            error={!!errors.email_id}
-            helperText={errors.email_id?.message || "Enter the branch or coordinator email address."}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("contact_number", {
-              required: "Contact number is required.",
+            error={!!errors.full_address_en}
+            helperText={errors.full_address_en?.message || "Enter the complete address, including landmark or building details if available."}
+        />
+
+        <TextField
+            {...register("full_address_kn", {
+              required: "ಪೂರ್ಣ ವಿಳಾಸ ಅಗತ್ಯವಿದೆ.",
               setValueAs: (value) => String(value ?? "").trim(),
-              validate: validatePhoneNumber,
+              validate: validateKannadaText,
             })}
-            label="Contact Number *"
+            label="ಪೂರ್ಣ ವಿಳಾಸ *"
             fullWidth
+            multiline
+            minRows={3}
             InputLabelProps={{ shrink: true }}
-            error={!!errors.contact_number}
-            helperText={errors.contact_number?.message || "Enter the primary contact number for this branch."}
-          />
+            error={!!errors.full_address_kn}
+            helperText={errors.full_address_kn?.message || "ಪೂರ್ಣ ವಿಳಾಸವನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+        />
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("nagara_en", {
+                  setValueAs: (value) => String(value ?? "").trim() || null,
+                  validate: validateEnglishText,
+                })}
+                label="Nagara (English)"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.nagara_en}
+                helperText={errors.nagara_en?.message || "Optional. Enter the nagara name in English."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("nagara_kn", {
+                  setValueAs: (value) => String(value ?? "").trim() || null,
+                  validate: validateKannadaText,
+                })}
+                label="ನಗರ"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.nagara_kn}
+                helperText={errors.nagara_kn?.message || "ಐಚ್ಛಿಕ. ನಗರದ ಹೆಸರನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("upa_nagara_en", {
+                  setValueAs: (value) => String(value ?? "").trim() || null,
+                  validate: validateEnglishText,
+                })}
+                label="Upa Nagara (English)"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.upa_nagara_en}
+                helperText={errors.upa_nagara_en?.message || "Optional. Enter the upa nagara name in English."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("upa_nagara_kn", {
+                  setValueAs: (value) => String(value ?? "").trim() || null,
+                  validate: validateKannadaText,
+                })}
+                label="ಉಪ ನಗರ"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.upa_nagara_kn}
+                helperText={errors.upa_nagara_kn?.message || "ಐಚ್ಛಿಕ. ಉಪ ನಗರದ ಹೆಸರನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            {...register("whatsapp_number", {
-              required: "WhatsApp number is required.",
-              setValueAs: (value) => String(value ?? "").trim(),
-              validate: validatePhoneNumber,
-            })}
-            label="WhatsApp Number *"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            error={!!errors.whatsapp_number}
-            helperText={errors.whatsapp_number?.message || "Enter the WhatsApp number for this branch."}
-          />
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("area_en", {
+                  required: "Area (English) is required.",
+                  setValueAs: (value) => String(value ?? "").trim().replace(/\s+/g, " "),
+                  minLength: { value: 3, message: "Area must be at least 3 characters." },
+                  maxLength: { value: 30, message: "Area must be 30 characters or fewer." },
+                  validate: validateEnglishText,
+                })}
+                label="Area (English) *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.area_en}
+                helperText={errors.area_en?.message || "Enter the locality, neighborhood, or area name."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("area_kn", {
+                  required: "ಪ್ರದೇಶದ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
+                  setValueAs: (value) => String(value ?? "").trim().replace(/\s+/g, " "),
+                  minLength: { value: 3, message: "ಪ್ರದೇಶದ ಹೆಸರು ಕನಿಷ್ಠ 3 ಅಕ್ಷರಗಳಾಗಿರಬೇಕು." },
+                  maxLength: { value: 30, message: "ಪ್ರದೇಶದ ಹೆಸರು 30 ಅಕ್ಷರಗಳಿಗಿಂತ ಹೆಚ್ಚಿರಬಾರದು." },
+                  validate: validateKannadaText,
+                })}
+                label="ಪ್ರದೇಶದ ಹೆಸರು *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.area_kn}
+                helperText={errors.area_kn?.message || "ಪ್ರದೇಶದ ಹೆಸರನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("pincode", {
+                  required: "Pincode is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: (value) => /^\d{6}$/.test(String(value ?? "")) || "Pincode must be exactly 6 digits.",
+                })}
+                label="Pincode *"
+                fullWidth
+                inputProps={{ inputMode: "numeric", maxLength: 6 }}
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.pincode}
+                helperText={errors.pincode?.message || "Enter the 6-digit postal pincode."}
+            />
+          </Grid>
         </Grid>
-      </Grid>
-    </Box>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("latitude", {
+                  setValueAs: normalizeOptionalNumber,
+                  validate: (value) =>
+                      value === null || value === undefined ||
+                      (typeof value === "number" && !Number.isNaN(value) && value >= -90 && value <= 90) ||
+                      "Latitude must be between -90 and 90.",
+                })}
+                label="Latitude"
+                fullWidth
+                type="text"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ inputMode: "decimal" }}
+                error={!!errors.latitude}
+                helperText={errors.latitude?.message || "Optional. Latitude must be between -90 and 90."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("longitude", {
+                  setValueAs: normalizeOptionalNumber,
+                  validate: (value) =>
+                      value === null || value === undefined ||
+                      (typeof value === "number" && !Number.isNaN(value) && value >= -180 && value <= 180) ||
+                      "Longitude must be between -180 and 180.",
+                })}
+                label="Longitude"
+                fullWidth
+                type="text"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ inputMode: "decimal" }}
+                error={!!errors.longitude}
+                helperText={errors.longitude?.message || "Optional. Longitude must be between -180 and 180."}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Button
+                component="a"
+                href={coordinateMapLink || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                disabled={!coordinateMapLink}
+            >
+              Test Latitude and Longitude in Google Maps
+            </Button>
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("mukhyashikshak_en", {
+                  required: "Mukhyashikshak (English) is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: validateEnglishText,
+                })}
+                label="Mukhyashikshak (English) *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.mukhyashikshak_en}
+                helperText={errors.mukhyashikshak_en?.message || "Enter the name of the mukhyashikshak responsible for this branch."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("mukhyashikshak_kn", {
+                  required: "ಮುಖ್ಯಶಿಕ್ಷಕರ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: validateKannadaText,
+                })}
+                label="ಮುಖ್ಯಶಿಕ್ಷಕರ ಹೆಸರು *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.mukhyashikshak_kn}
+                helperText={errors.mukhyashikshak_kn?.message || "ಮುಖ್ಯಶಿಕ್ಷಕರ ಹೆಸರನ್ನು ಕನ್ನಡದಲ್ಲಿ ನಮೂದಿಸಿ."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("email_id", {
+                  required: "Email is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: (value) =>
+                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value)) || "Enter a valid email address.",
+                })}
+                label="Email *"
+                fullWidth
+                type="email"
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.email_id}
+                helperText={errors.email_id?.message || "Enter the branch or coordinator email address."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("contact_number", {
+                  required: "Contact number is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: validatePhoneNumber,
+                })}
+                label="Contact Number *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.contact_number}
+                helperText={errors.contact_number?.message || "Enter the primary contact number for this branch."}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+                {...register("whatsapp_number", {
+                  required: "WhatsApp number is required.",
+                  setValueAs: (value) => String(value ?? "").trim(),
+                  validate: validatePhoneNumber,
+                })}
+                label="WhatsApp Number *"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.whatsapp_number}
+                helperText={errors.whatsapp_number?.message || "Enter the WhatsApp number for this branch."}
+            />
+          </Grid>
+        </Grid>
+      </Box>
   );
 };

@@ -41,7 +41,8 @@ export interface UserProfile {
   valaya_name?: string | null;
   accessible_valaya_rows?: Array<{
     id: string;
-    valaya_name: string;
+    valaya_name_en: string;
+    valaya_name_kn: string;
     valaya_code: string;
     district_id: string;
   }>;

@@ -1,6 +1,7 @@
 import React from "react";
 import { ThemedLayout } from "@refinedev/mui";
 import { Box, Typography } from "@mui/material"; // Import Box and Typography
+import { Header } from "../components/header";
 
 export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   // Custom Title component to avoid nested <a> tags
@@ -33,7 +34,7 @@ export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <ThemedLayout Title={CustomTitle}>
+    <ThemedLayout Title={CustomTitle} Header={Header}>
       {children}
     </ThemedLayout>
   );

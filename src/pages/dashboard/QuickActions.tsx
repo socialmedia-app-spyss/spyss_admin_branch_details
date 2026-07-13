@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardContent, Typography, Button, Grid } from "@mui/material";
+import { Button, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useGetIdentity } from "@refinedev/core";
 
@@ -22,33 +22,20 @@ export const QuickActions: React.FC = () => {
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
 
   return (
-    <Card sx={{ mt: 2 }}>
-      <CardContent>
-        <Typography variant="h6" component="div" sx={{ mb: 2 }}>
-          Quick Actions
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item>
-            <Button
-              variant="contained"
-              onClick={() => navigate("/branches/create")}
-              disabled={!isAdminOrSuperAdmin}
-            >
-              + Create Branch
-            </Button>
-          </Grid>
+    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Button variant="contained" onClick={() => navigate("/branches/create")} disabled={!isAdminOrSuperAdmin}>
+        + Create Branch
+      </Button>
           {isSuperAdmin && (
-            <Grid item>
-              <Button
-                variant="contained"
-                onClick={() => navigate("/users")}
-              >
+            <>
+              <Button variant="contained" onClick={() => navigate("/notifications/create")}>
+                + Create Notification
+              </Button>
+              <Button variant="outlined" onClick={() => navigate("/users")}>
                 Manage Admin Users
               </Button>
-            </Grid>
+            </>
           )}
-        </Grid>
-      </CardContent>
-    </Card>
+    </Stack>
   );
 };

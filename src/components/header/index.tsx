@@ -1,7 +1,7 @@
 import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
 import AppBar from "@mui/material/AppBar";
-import Avatar from "@mui/material/Avatar";
+import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
@@ -10,12 +10,14 @@ import { useGetIdentity } from "@refinedev/core";
 import { HamburgerMenu, RefineThemedLayoutHeaderProps } from "@refinedev/mui";
 import React, { useContext } from "react";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useLanguage } from "../../hooks/useLanguage";
 import { UserProfile } from "../../types/user"; // Import UserProfile type
 
 export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   sticky = true,
 }) => {
   const { mode, setMode } = useContext(ColorModeContext);
+  const { language, setLanguage } = useLanguage();
 
   const { data: user } = useGetIdentity<UserProfile>();
 
@@ -32,7 +34,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
           
           {/* Directly render full_name here for testing */}
           {user?.full_name && (
-            <div style={{ color: 'blue', fontWeight: 'bold', marginRight: '16px' }}>
+            <div style={{ color: 'white', fontWeight: 'bold', marginRight: '16px' }}>
               Welcome, {user.full_name}
             </div>
           )}
@@ -43,6 +45,16 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
             alignItems="center"
             justifyContent="flex-end" // Aligned to end
           >
+            <Button
+              color="inherit"
+              variant="outlined"
+              onClick={() => setLanguage(language === "en" ? "kn" : "en")}
+              aria-label={language === "en" ? "Switch to Kannada" : "Switch to English"}
+              sx={{ minWidth: 88, borderColor: "currentColor" }}
+            >
+              {language === "en" ? "ಕನ್ನಡ" : "English"}
+            </Button>
+
             <IconButton
               color="inherit"
               onClick={() => {
