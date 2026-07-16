@@ -27,7 +27,7 @@ export const NotificationForm = ({ register, control, errors }: Props) => (
           control={control}
           rules={{ required: "Priority is required." }}
           render={({ field }) => (
-            <Select {...field} labelId="notification-priority-label" label="Priority *">
+            <Select {...field} value={field.value ?? ""} labelId="notification-priority-label" label="Priority *">
               {['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
             </Select>
           )}
@@ -43,7 +43,7 @@ export const NotificationForm = ({ register, control, errors }: Props) => (
           control={control}
           rules={{ required: "Type is required." }}
           render={({ field }) => (
-            <Select {...field} labelId="notification-type-label" label="Type *">
+            <Select {...field} value={field.value ?? ""} labelId="notification-type-label" label="Type *">
               {['GENERAL', 'EVENT', 'BRANCH', 'ANNOUNCEMENT', 'EMERGENCY'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
             </Select>
           )}
@@ -54,26 +54,26 @@ export const NotificationForm = ({ register, control, errors }: Props) => (
 
     <Grid item xs={12} md={6}>
       <TextField {...register("title_en", { required: "English title is required.", maxLength: { value: 200, message: "Title must be 200 characters or fewer." } })}
-        label="Title (English) *" fullWidth error={!!errors.title_en} helperText={errors.title_en?.message} />
+        label="Title (English) *" fullWidth InputLabelProps={{ shrink: true }} error={!!errors.title_en} helperText={errors.title_en?.message} />
     </Grid>
     <Grid item xs={12} md={6}>
       <TextField {...register("title_kn", { maxLength: { value: 200, message: "Title must be 200 characters or fewer." } })}
-        label="ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ)" fullWidth error={!!errors.title_kn} helperText={errors.title_kn?.message || "Optional"} />
+        label="ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ)" fullWidth InputLabelProps={{ shrink: true }} error={!!errors.title_kn} helperText={errors.title_kn?.message || "Optional"} />
     </Grid>
     <Grid item xs={12} md={6}>
       <TextField {...register("body_en", { required: "English body is required." })}
-        label="Body (English) *" fullWidth multiline minRows={5} error={!!errors.body_en} helperText={errors.body_en?.message} />
+        label="Body (English) *" fullWidth multiline minRows={5} InputLabelProps={{ shrink: true }} error={!!errors.body_en} helperText={errors.body_en?.message} />
     </Grid>
     <Grid item xs={12} md={6}>
       <TextField {...register("body_kn")}
-        label="ವಿವರ (ಕನ್ನಡ)" fullWidth multiline minRows={5} error={!!errors.body_kn} helperText={errors.body_kn?.message || "Optional"} />
+        label="ವಿವರ (ಕನ್ನಡ)" fullWidth multiline minRows={5} InputLabelProps={{ shrink: true }} error={!!errors.body_kn} helperText={errors.body_kn?.message || "Optional"} />
     </Grid>
 
     <Grid item xs={12} md={6}>
       <Controller name="date_time" control={control} render={({ field }) => (
         <TextField {...field} value={toDateTimeLocal(field.value)} onChange={(event) => field.onChange(event.target.value)}
-          label="Publish Date and Time" type="datetime-local" fullWidth InputLabelProps={{ shrink: true }}
-          helperText="Optional. Leave blank to publish immediately." />
+          label="Event Date and Time" type="datetime-local" fullWidth InputLabelProps={{ shrink: true }}
+          helperText="Optional. When the event is expected to take place." />
       )} />
     </Grid>
     <Grid item xs={12} md={6}>

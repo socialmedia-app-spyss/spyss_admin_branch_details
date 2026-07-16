@@ -8,6 +8,7 @@ import { QuickActions } from "./QuickActions";
 import {useGetIdentity} from "@refinedev/core";
 import { RecentNotifications } from "./RecentNotifications";
 import { NotificationStats } from "./NotificationStats";
+import { EventStats } from "./EventStats";
 import { UserStats } from "./UserStats";
 import { Box, Stack, Typography } from "@mui/material";
 
@@ -32,13 +33,22 @@ export const DashboardPage: React.FC = () => {
       </Box>
 
       {currentUser?.role === "SUPER_ADMIN" && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "warning.main", color: "warning.contrastText" }}>
-            Notification Overview
-          </Typography>
-          <NotificationStats />
-          <RecentNotifications />
-        </Box>
+        <>
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "info.main", color: "info.contrastText" }}>
+              Event Overview
+            </Typography>
+            <EventStats />
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "warning.main", color: "warning.contrastText" }}>
+              Notification Overview
+            </Typography>
+            <NotificationStats />
+            <RecentNotifications />
+          </Box>
+        </>
       )}
 
       <Box sx={{ mt: 3 }}>

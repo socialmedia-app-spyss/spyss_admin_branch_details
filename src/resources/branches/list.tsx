@@ -29,6 +29,7 @@ export const BranchList = () => {
         "*",
         "master_categories(category_name_en, category_name_kn)",
         "master_batches(batch_name_en, batch_name_kn)",
+        "master_countries(country_name_en, country_name_kn)",
         "master_states(state_name_en, state_name_kn)",
         "master_districts(district_name_en, district_name_kn)",
         "master_valayas(valaya_name_en, valaya_name_kn)",
@@ -44,6 +45,14 @@ export const BranchList = () => {
       headerName: "Branch Name",
       flex: 1,
       valueGetter: (_, row) => getLocalizedName(row.branch_name_en, row.branch_name_kn, language),
+    },
+    {
+      field: "master_countries",
+      headerName: "Country",
+      flex: 1,
+      minWidth: 130,
+      valueGetter: (_, row) =>
+        getLocalizedName(row.master_countries?.country_name_en, row.master_countries?.country_name_kn, language),
     },
     {
       field: "master_states",

@@ -9,6 +9,7 @@ export type ResolveMapLinkResult = {
   longitude?: number | null;
   address?: string | null;
   area?: string | null;
+  nagara?: string | null;
   pincode?: string | null;
   source?: string;
   coordinateSource?: string;
@@ -26,6 +27,7 @@ type ResolveMapLinkResponse = {
   longitude?: number | null;
   address?: string | null;
   area?: string | null;
+  nagara?: string | null;
   pincode?: string | null;
   source?: string;
   coordinateSource?: string;
@@ -93,6 +95,7 @@ export const resolveGoogleMapLink = async (googleLocationLink: string): Promise<
     longitude: data.longitude,
     address: data.address,
     area: data.area,
+    nagara: data.nagara,
     pincode: data.pincode,
     source: data.source,
     coordinateSource: data.coordinateSource,

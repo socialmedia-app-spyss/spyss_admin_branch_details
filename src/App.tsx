@@ -30,10 +30,15 @@ import { AdminUsers } from "./resources/settings/AdminUsers";
 import { Authenticated } from "@refinedev/core";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import EventIcon from "@mui/icons-material/Event";
 import { NotificationList } from "./resources/notifications/list";
 import { NotificationCreate } from "./resources/notifications/create";
 import { NotificationEdit } from "./resources/notifications/edit";
 import { NotificationShow } from "./resources/notifications/show";
+import { EventList } from "./resources/events/list";
+import { EventCreate } from "./resources/events/create";
+import { EventEdit } from "./resources/events/edit";
+import { EventShow } from "./resources/events/show";
 
 function App() {
   return (
@@ -85,6 +90,14 @@ function App() {
                   show: "/notifications/show/:id",
                   meta: { label: "Notifications", icon: <NotificationsIcon /> },
                 },
+                {
+                  name: "events",
+                  list: "/events",
+                  create: "/events/create",
+                  edit: "/events/edit/:id",
+                  show: "/events/show/:id",
+                  meta: { label: "Events", icon: <EventIcon /> },
+                },
               ]}
             >
               <Routes>
@@ -115,6 +128,10 @@ function App() {
                     <Route path="/notifications/create" element={<NotificationCreate />} />
                     <Route path="/notifications/edit/:id" element={<NotificationEdit />} />
                     <Route path="/notifications/show/:id" element={<NotificationShow />} />
+                    <Route path="/events" element={<EventList />} />
+                    <Route path="/events/create" element={<EventCreate />} />
+                    <Route path="/events/edit/:id" element={<EventEdit />} />
+                    <Route path="/events/show/:id" element={<EventShow />} />
                   </Route>
                 </Route>
 

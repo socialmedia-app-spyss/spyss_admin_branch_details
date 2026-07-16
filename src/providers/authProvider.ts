@@ -31,7 +31,6 @@ const VALAYA_ADMIN_RESOURCES = [
   "dashboard",
   "branches",
   "latest_branches",
-  "events",
   "activities",
   "enquiries",
   "users",
@@ -39,7 +38,7 @@ const VALAYA_ADMIN_RESOURCES = [
   "master_valayas",
 ];
 
-const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications"];
+const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events"];
 
 const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
   const { data: authData, error: authError } =
@@ -209,7 +208,6 @@ export const authProvider = {
         "dashboard",
         "branches",
         "latest_branches",
-        "events",
         "activities",
         "enquiries",
       ];

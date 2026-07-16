@@ -7,6 +7,50 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+type OpenStreetMapAddress = {
+  neighbourhood?: string;
+  suburb?: string;
+  city_district?: string;
+  city?: string;
+  county?: string;
+  state_district?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+};
+
+type OpenStreetMapResult = {
+  display_name?: string;
+  address?: OpenStreetMapAddress;
+};
+
+async function reverseGeocodeWithOpenStreetMap(latitude: number, longitude: number) {
+  try {
+    const query = new URLSearchParams({
+      format: "jsonv2",
+      lat: String(latitude),
+      lon: String(longitude),
+      addressdetails: "1",
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query.toString()}`, {
+      headers: {
+        "User-Agent": "SPYSS-Admin/1.0 (https://socialmedia-app-spyss.github.io/spyss_admin_branch_details)",
+        "Accept-Language": "en-IN,en;q=0.9",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn("OpenStreetMap reverse geocoding failed:", response.status);
+      return null;
+    }
+
+    return await response.json() as OpenStreetMapResult;
+  } catch (error) {
+    console.warn("OpenStreetMap reverse geocoding error:", error);
+    return null;
+  }
+}
+
 function isAllowedGoogleMapsUrl(inputUrl: string) {
   try {
     const parsedUrl = new URL(inputUrl);
@@ -730,6 +774,10 @@ serve(async (req) => {
       addressResult = extractAddressFromUrl(responseBody);
     }
 
+    const openStreetMapResult = coordinates
+      ? await reverseGeocodeWithOpenStreetMap(coordinates.latitude, coordinates.longitude)
+      : null;
+
     if (!coordinates && !addressResult) {
       return new Response(
         JSON.stringify({
@@ -750,7 +798,9 @@ serve(async (req) => {
       );
     }
 
-    const addressParts = extractAddressParts(addressResult?.address || null);
+    const resolvedAddress = openStreetMapResult?.display_name || addressResult?.address || null;
+    const openStreetMapAddress = openStreetMapResult?.address;
+    const addressParts = extractAddressParts(resolvedAddress);
 
     return new Response(
       JSON.stringify({
@@ -765,17 +815,20 @@ serve(async (req) => {
         longitude: coordinates?.longitude || null,
         coordinateSource: coordinates?.source || null,
 
-        address: addressResult?.address || null,
-        addressSource: addressResult?.source || null,
+        address: resolvedAddress,
+        addressSource: openStreetMapResult ? "openstreetmap_nominatim" : addressResult?.source || null,
 
         placeName: addressParts.placeName,
         plusCode: addressParts.plusCode,
         road: addressParts.road,
-        area: addressParts.area,
-        city: addressParts.city,
-        state: addressParts.state,
-        pincode: addressParts.pincode,
-        country: addressParts.country,
+        area: openStreetMapAddress?.neighbourhood || openStreetMapAddress?.suburb || addressParts.area,
+        // Nominatim's county represents the Nagara/taluk-level value required
+        // by the branch form (for example, "Bangalore South").
+        nagara: openStreetMapAddress?.county || null,
+        city: openStreetMapAddress?.city || addressParts.city,
+        state: openStreetMapAddress?.state || addressParts.state,
+        pincode: openStreetMapAddress?.postcode || addressParts.pincode,
+        country: openStreetMapAddress?.country || addressParts.country,
       }),
       {
         status: 200,

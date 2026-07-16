@@ -31,6 +31,9 @@ export const QuickActions: React.FC = () => {
               <Button variant="contained" onClick={() => navigate("/notifications/create")}>
                 + Create Notification
               </Button>
+              <Button variant="contained" onClick={() => navigate("/events/create")}>
+                + Create Event
+              </Button>
               <Button variant="outlined" onClick={() => navigate("/users")}>
                 Manage Admin Users
               </Button>

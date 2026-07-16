@@ -30,6 +30,7 @@ import type {
   MasterBatch,
   MasterBranchStatus,
   MasterCategory,
+  MasterCountry,
   MasterDistrict,
   MasterMedium,
   MasterState,
@@ -54,6 +55,7 @@ type BranchFormProps = {
 type MasterOptions = {
   categories: MasterCategory[];
   batches: MasterBatch[];
+  countries: MasterCountry[];
   states: MasterState[];
   districts: MasterDistrict[];
   valayas: MasterValaya[];
@@ -64,6 +66,7 @@ type MasterOptions = {
 const emptyOptions: MasterOptions = {
   categories: [],
   batches: [],
+  countries: [],
   states: [],
   districts: [],
   valayas: [],
@@ -327,6 +330,7 @@ export const BranchForm = ({
   const classTimingsParsed = useRef(false);
   const { data: identity } = useGetIdentity<UserProfile>();
   const classTimings = watch("class_timings");
+  const selectedCountryId = watch("country_id");
   const selectedValayaId = watch("valaya_id");
   const latitude = watch("latitude");
   const longitude = watch("longitude");
@@ -341,6 +345,7 @@ export const BranchForm = ({
       const [
         categories,
         batches,
+        countries,
         states,
         districts,
         valayas,
@@ -355,6 +360,10 @@ export const BranchForm = ({
         fetchActiveMasterOptions<MasterBatch>(
             "master_batches",
             "batch",
+        ),
+        fetchActiveMasterOptions<MasterCountry>(
+            "master_countries",
+            "country",
         ),
         fetchActiveMasterOptions<MasterState>(
             "master_states",
@@ -382,6 +391,7 @@ export const BranchForm = ({
       setOptions({
         categories: sortByDisplayOrder(categories),
         batches: sortByDisplayOrder(batches),
+        countries: sortByDisplayOrder(countries),
         states: sortByDisplayOrder(states),
         districts: sortByDisplayOrder(districts),
         valayas: sortByDisplayOrder(valayas),
@@ -395,24 +405,26 @@ export const BranchForm = ({
   }, []);
   // Apply form defaults — always search by English name or code, never Kannada text.
   useEffect(() => {
-    if (!applyDefaults || defaultValuesApplied.current || options.categories.length === 0) {
+    if (!applyDefaults || defaultValuesApplied.current || options.categories.length === 0 || options.countries.length === 0) {
       return;
     }
 
     const category = findByEnglishNameOrCode(options.categories, "General", "category_name_en", "category_code");
     const batch    = findByEnglishNameOrCode(options.batches,    "Morning",   "batch_name_en",    "batch_code");
+    const country  = findByEnglishNameOrCode(options.countries,  "India",     "country_name_en",  "country_code");
     const state    = findByEnglishNameOrCode(options.states,     "Karnataka", "state_name_en",    "state_code");
     const status   = findByEnglishNameOrCode(options.statuses,   "Active",    "status_name_en",   "status_code");
     const medium   = findByEnglishNameOrCode(options.mediums,    "Kannada",   "medium_name_en",   "medium_code");
 
     if (category) setValue("category_id", category.id as string);
     if (batch)    setValue("batch_id",    batch.id as string);
+    if (country && !selectedCountryId) setValue("country_id", country.id as string);
     if (state && !selectedStateId) setValue("state_id", state.id as string);
     if (status)   setValue("status_id",   status.id as string);
     if (medium)   setValue("medium_id",   medium.id as string);
 
     defaultValuesApplied.current = true;
-  }, [applyDefaults, options.batches, options.categories, options.mediums, options.states, options.statuses, selectedStateId, setValue]);
+  }, [applyDefaults, options.batches, options.categories, options.countries, options.mediums, options.states, options.statuses, selectedCountryId, selectedStateId, setValue]);
 
   useEffect(() => {
     if (classTimingsParsed.current || !timingSource) {
@@ -491,6 +503,15 @@ export const BranchForm = ({
     return options.valayas.filter((valaya) => valaya.valaya_code === selectedValayaCode);
   }, [identity?.accessible_valaya_rows, isValayaAdmin, options.valayas, selectedValayaCode]);
 
+  const filteredStates = useMemo(
+      () => options.states.filter((state) => state.country_id === selectedCountryId),
+      [options.states, selectedCountryId],
+  );
+
+  const safeStateValue = filteredStates.some((state) => state.id === selectedStateId)
+      ? selectedStateId ?? ""
+      : "";
+
   const filteredDistricts = useMemo(() => {
     const districtsForState = options.districts.filter((district) => district.state_id === selectedStateId);
     if (isValayaAdmin || selectedValayaCode) {
@@ -560,10 +581,12 @@ export const BranchForm = ({
       }
       if (result.address) setValue("full_address_en", result.address, { shouldDirty: true, shouldValidate: true });
       if (result.area)    setValue("area_en",         result.area,    { shouldDirty: true, shouldValidate: true });
+      if (result.nagara)  setValue("nagara_en",       result.nagara,  { shouldDirty: true, shouldValidate: true });
       if (result.pincode) setValue("pincode",       result.pincode, { shouldDirty: true, shouldValidate: true });
       const foundDetails = [
         result.address   ? "address"   : null,
         result.area      ? "area"      : null,
+        result.nagara    ? "nagara"    : null,
         result.pincode   ? "pincode"   : null,
         result.latitude  != null ? "latitude"  : null,
         result.longitude != null ? "longitude" : null,
@@ -629,15 +652,37 @@ export const BranchForm = ({
 
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
-            <TextField
-                {...register("country", { required: "This field is required" })}
-                label="Country *"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                InputProps={{ readOnly: true }}
-                error={!!errors.country}
-                helperText={errors.country?.message || "Defaults to India."}
-            />
+            <FormControl fullWidth error={!!errors.country_id}>
+              <InputLabel id="country-label">Country *</InputLabel>
+              <Controller
+                  name="country_id"
+                  control={control}
+                  rules={{ required: "Select a country." }}
+                  render={({ field }) => (
+                      <Select
+                          {...field}
+                          labelId="country-label"
+                          label="Country *"
+                          value={field.value || ""}
+                          onChange={(event) => {
+                            field.onChange(event);
+                            setSelectedValayaCode("");
+                            setValue("state_id", "", { shouldDirty: true, shouldValidate: true });
+                            setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
+                            setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                          }}
+                      >
+                        <MenuItem value="">Select country</MenuItem>
+                        {options.countries.map((country) => (
+                            <MenuItem key={country.id} value={country.id}>
+                              {getLocalizedName(country.country_name_en, country.country_name_kn, language)}
+                            </MenuItem>
+                        ))}
+                      </Select>
+                  )}
+              />
+              <FormHelperText>{errors.country_id?.message || "Defaults to India."}</FormHelperText>
+            </FormControl>
           </Grid>
 
           <Grid item xs={12} md={6}>
@@ -652,7 +697,8 @@ export const BranchForm = ({
                           {...field}
                           labelId="state-label"
                           label="State *"
-                          value={field.value || ""}
+                          value={safeStateValue}
+                          disabled={!selectedCountryId}
                           onChange={(event) => {
                             field.onChange(event);
                             setSelectedValayaCode("");
@@ -661,7 +707,7 @@ export const BranchForm = ({
                           }}
                       >
                         <MenuItem value="">Select state</MenuItem>
-                        {options.states.map((state) => (
+                        {filteredStates.map((state) => (
                             <MenuItem key={state.id} value={state.id}>
                               {getLocalizedName(state.state_name_en, state.state_name_kn, language)}
                             </MenuItem>
@@ -669,7 +715,7 @@ export const BranchForm = ({
                       </Select>
                   )}
               />
-              <FormHelperText>{errors.state_id?.message || "Defaults to Karnataka. Select another state only if the branch is outside Karnataka."}</FormHelperText>
+              <FormHelperText>{errors.state_id?.message || "Only states from the selected country are shown."}</FormHelperText>
             </FormControl>
           </Grid>
 
@@ -741,7 +787,7 @@ export const BranchForm = ({
                       </Select>
                   )}
               />
-              <FormHelperText>{errors.district_id?.message || "Select the district where the branch is located."}</FormHelperText>
+              <FormHelperText>{errors.district_id?.message || "Only districts from the selected state are shown."}</FormHelperText>
             </FormControl>
           </Grid>
         </Grid>

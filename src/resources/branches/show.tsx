@@ -59,6 +59,7 @@ export const BranchShow = () => {
         "*",
         "master_categories(category_name_en, category_name_kn)",
         "master_batches(batch_name_en, batch_name_kn)",
+        "master_countries(country_name_en, country_name_kn)",
         "master_states(state_name_en, state_name_kn)",
         "master_districts(district_name_en, district_name_kn)",
         "master_valayas(valaya_name_en, valaya_name_kn)",
@@ -193,7 +194,7 @@ export const BranchShow = () => {
               <DetailItem label={labels.area} value={localized(record?.area_en, record?.area_kn)} />
               <DetailItem label={labels.nagara} value={localized(record?.nagara_en, record?.nagara_kn)} />
               <DetailItem label={labels.upaNagara} value={localized(record?.upa_nagara_en, record?.upa_nagara_kn)} />
-              <DetailItem label={labels.country} value={formatValue(record?.country)} />
+              <DetailItem label={labels.country} value={localized(record?.master_countries?.country_name_en, record?.master_countries?.country_name_kn)} />
               <DetailItem label={labels.state} value={localized(record?.master_states?.state_name_en, record?.master_states?.state_name_kn)} />
               <DetailItem label={labels.district} value={localized(record?.master_districts?.district_name_en, record?.master_districts?.district_name_kn)} />
               <DetailItem label={labels.valaya} value={localized(record?.master_valayas?.valaya_name_en, record?.master_valayas?.valaya_name_kn)} />

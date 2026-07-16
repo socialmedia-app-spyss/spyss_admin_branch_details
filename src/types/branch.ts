@@ -12,6 +12,7 @@ export interface Branch {
   category_id: string;
   batch_id: string;
   valaya_id: string;
+  country_id: string;
   state_id: string;
   district_id: string;
   status_id: string;
@@ -22,7 +23,6 @@ export interface Branch {
   class_days: string[];
   class_timings: string;
   pincode: string;
-  country: string;
 
   area_en: string;
   area_kn: string;
@@ -56,6 +56,7 @@ export interface BranchCreateInput {
   category_id: string;
   batch_id: string;
   valaya_id: string;
+  country_id: string;
   state_id: string;
   district_id: string;
   status_id: string;
@@ -66,7 +67,6 @@ export interface BranchCreateInput {
   class_days: string[];
   class_timings: string;
   pincode: string;
-  country: string;
 
   area_en: string;
   area_kn: string;
@@ -95,8 +95,19 @@ export type BranchUpdateInput = Partial<BranchCreateInput>;
 // getLocalizedName(item.*_name_en, item.*_name_kn, language) instead.
 // ---------------------------------------------------------------------------
 
+export interface MasterCountry {
+  id: string;
+  country_name_en: string;
+  country_name_kn: string;
+  country_code: string;
+  phone_code?: string | null;
+  display_order: number;
+  is_active: boolean;
+}
+
 export interface MasterState {
   id: string;
+  country_id: string;
   state_name_en: string;
   state_name_kn: string;
   state_code: string;
@@ -181,6 +192,11 @@ export type PartialMasterState = Pick<
   "state_name_en" | "state_name_kn"
 >;
 
+export type PartialMasterCountry = Pick<
+  MasterCountry,
+  "country_name_en" | "country_name_kn"
+>;
+
 export type PartialMasterDistrict = Pick<
   MasterDistrict,
   "district_name_en" | "district_name_kn"
@@ -212,6 +228,7 @@ export type PartialMasterBranchStatus = Pick<
 >;
 
 export interface BranchWithMasters extends Branch {
+  master_countries?: PartialMasterCountry | null;
   master_categories?: PartialMasterCategory | null;
   master_batches?: PartialMasterBatch | null;
   master_states?: PartialMasterState | null;

@@ -20,7 +20,7 @@ export const NotificationList = () => {
     { field: "title_en", headerName: "Title", flex: 1, minWidth: 220 },
     { field: "type", headerName: "Type", width: 150 },
     { field: "priority", headerName: "Priority", width: 120, renderCell: ({ value }) => <Chip size="small" label={value} color={value === "URGENT" ? "error" : value === "HIGH" ? "warning" : "default"} /> },
-    { field: "date_time", headerName: "Publish At", width: 190, valueFormatter: (value) => formatDateTime(value) },
+    { field: "date_time", headerName: "Event Date & Time", width: 190, valueFormatter: (value) => formatDateTime(value) },
     { field: "expiry_date", headerName: "Expires At", width: 190, valueFormatter: (value) => formatDateTime(value) },
     { field: "expiry_status", headerName: "Expiry Status", width: 130, sortable: false, filterable: false,
       renderCell: ({ row }) => {
