@@ -8,6 +8,6 @@ import { normalizePanchanga } from "./create";
 export const PanchangaEdit = () => {
   const form = useForm<DailyPanchanga, HttpError, DailyPanchangaInput>();
   return <Edit title="Edit Daily Panchanga" saveButtonProps={{ ...form.saveButtonProps, onClick: form.handleSubmit((values) => form.refineCore.onFinish(normalizePanchanga(values))) }}>
-    <PanchangaForm register={form.register} control={form.control} errors={form.formState.errors} />
+    <PanchangaForm register={form.register} control={form.control} errors={form.formState.errors} setValue={form.setValue} />
   </Edit>;
 };

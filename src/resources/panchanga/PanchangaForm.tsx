@@ -1,12 +1,15 @@
 import { Checkbox, FormControlLabel, Grid, MenuItem, Paper, TextField, Typography } from "@mui/material";
-import { Controller, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import { useEffect } from "react";
+import { Controller, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue, useWatch } from "react-hook-form";
 import type { DailyPanchangaInput } from "../../types/panchanga";
+import { getKannadaDisplayDate } from "./displayDate";
 import { panchangaOptions } from "./options";
 
 type Props = {
   register: UseFormRegister<DailyPanchangaInput>;
   control: Control<DailyPanchangaInput>;
   errors: FieldErrors<DailyPanchangaInput>;
+  setValue: UseFormSetValue<DailyPanchangaInput>;
 };
 
 const labels: Record<keyof typeof panchangaOptions, string> = {
@@ -15,7 +18,17 @@ const labels: Record<keyof typeof panchangaOptions, string> = {
   nakshatra: "ನಕ್ಷತ್ರ", yoga: "ಯೋಗ", karana: "ಕರಣ",
 };
 
-export const PanchangaForm = ({ register, control, errors }: Props) => (
+export const PanchangaForm = ({ register, control, errors, setValue }: Props) => {
+  const panchangaDate = useWatch({ control, name: "panchanga_date" });
+
+  useEffect(() => {
+    setValue("display_date", getKannadaDisplayDate(panchangaDate), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [panchangaDate, setValue]);
+
+  return (
   <Grid container spacing={2}>
     <Grid item xs={12}>
       <Paper variant="outlined" sx={{ p: 2.5 }}>
@@ -71,7 +84,7 @@ export const PanchangaForm = ({ register, control, errors }: Props) => (
         <Typography variant="h6" fontWeight={700} mb={2}>Display and notes</Typography>
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            <TextField {...register("display_date")} label="Display Date" fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField {...register("display_date")} label="Display Date" fullWidth InputLabelProps={{ shrink: true }} InputProps={{ readOnly: true }} />
           </Grid>
           {(["special_note", "special_note2", "special_note3"] as const).map((name, index) => (
             <Grid item xs={12} key={name}>
@@ -87,4 +100,5 @@ export const PanchangaForm = ({ register, control, errors }: Props) => (
       </Paper>
     </Grid>
   </Grid>
-);
+  );
+};

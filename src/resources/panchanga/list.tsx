@@ -29,6 +29,7 @@ import type { DailyPanchanga, DailyPanchangaInput } from "../../types/panchanga"
 import type { UserProfile } from "../../types/user";
 import { supabaseClient } from "../../supabaseClient";
 import { normalizePanchanga } from "./create";
+import { getKannadaDisplayDate } from "./displayDate";
 import { getPanchangaMonthRange, isPanchangaMonth } from "./monthFilter";
 import { panchangaOptions } from "./options";
 
@@ -110,18 +111,33 @@ const DateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => (
   <TextField
     type="date"
     value={params.value ?? ""}
-    onChange={(event) =>
-      params.api.setEditCellValue({
+    onChange={(event) => {
+      const date = event.target.value;
+      void params.api.setEditCellValue({
         id: params.id,
         field: params.field,
-        value: event.target.value,
-      })
-    }
+        value: date,
+      });
+      void params.api.setEditCellValue({
+        id: params.id,
+        field: "display_date",
+        value: getKannadaDisplayDate(date),
+      });
+    }}
     fullWidth
     size="small"
     required
     error={Boolean(params.error)}
     helperText={params.error ? String(params.validationMessage ?? "Invalid date.") : undefined}
+  />
+);
+
+const DisplayDateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => (
+  <TextField
+    value={params.value ?? ""}
+    fullWidth
+    size="small"
+    InputProps={{ readOnly: true }}
   />
 );
 
@@ -311,7 +327,13 @@ export const PanchangaList = () => {
       headerName: "Date",
       width: 145,
       editable: true,
+      hideable: false,
       renderEditCell: DateEditCell,
+      valueSetter: (value, row) => ({
+        ...row,
+        panchanga_date: value,
+        display_date: getKannadaDisplayDate(value),
+      }),
       preProcessEditCellProps: (params) =>
         validateDateLanguage(params, "panchanga_date"),
       headerClassName: "panchanga-pinned-left",
@@ -350,7 +372,13 @@ export const PanchangaList = () => {
       type: "number",
     },
     ...optionColumns,
-    { field: "display_date", headerName: "Display Date", width: 220, editable: true },
+    {
+      field: "display_date",
+      headerName: "Display Date",
+      width: 220,
+      editable: true,
+      renderEditCell: DisplayDateEditCell,
+    },
     { field: "special_note", headerName: "Special Note 1", width: 220, editable: true },
     { field: "special_note2", headerName: "Special Note 2", width: 220, editable: true },
     { field: "special_note3", headerName: "Special Note 3", width: 220, editable: true },
@@ -477,6 +505,7 @@ export const PanchangaList = () => {
         rowCount={(dataGridProps.rowCount ?? 0) + newRows.length}
         columns={columns}
         autoHeight
+        columnBufferPx={10000}
         editMode="row"
         rowModesModel={rowModesModel}
         onRowModesModelChange={setRowModesModel}
@@ -488,26 +517,34 @@ export const PanchangaList = () => {
         getEstimatedRowHeight={() => 84}
         sx={{
           "& .panchanga-pinned-left": {
-            position: "sticky",
-            left: 0,
-            zIndex: 3,
-            bgcolor: "background.paper",
+            position: "sticky !important",
+            left: "0 !important",
+            zIndex: "20 !important",
+            bgcolor: "#fff !important",
             boxShadow: "2px 0 4px -2px rgba(0,0,0,0.28)",
+            overflow: "hidden",
           },
           "& .panchanga-pinned-right": {
-            position: "sticky",
-            right: 0,
-            zIndex: 3,
-            bgcolor: "background.paper",
+            position: "sticky !important",
+            right: "0 !important",
+            zIndex: "20 !important",
+            bgcolor: "#fff !important",
             boxShadow: "-2px 0 4px -2px rgba(0,0,0,0.28)",
+            overflow: "hidden",
           },
           "& .MuiDataGrid-columnHeader.panchanga-pinned-left, & .MuiDataGrid-columnHeader.panchanga-pinned-right":
             {
-              zIndex: 4,
+              zIndex: "30 !important",
+              bgcolor: "#fff !important",
             },
           "& .MuiDataGrid-cell--editing.panchanga-pinned-left, & .MuiDataGrid-cell--editing.panchanga-pinned-right":
             {
-              bgcolor: "background.paper",
+              zIndex: "25 !important",
+              bgcolor: "#fff !important",
+            },
+          "& .MuiDataGrid-cell:not(.panchanga-pinned-left):not(.panchanga-pinned-right), & .MuiDataGrid-columnHeader:not(.panchanga-pinned-left):not(.panchanga-pinned-right)":
+            {
+              zIndex: 0,
             },
         }}
         onProcessRowUpdateError={(error) => {
