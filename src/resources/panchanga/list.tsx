@@ -1,6 +1,6 @@
 import { Button, Chip, Stack, TextField } from "@mui/material";
 import { type CrudFilters, useGetIdentity } from "@refinedev/core";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { DataGrid, GridToolbar, type GridColDef } from "@mui/x-data-grid";
 import { DeleteButton, EditButton, List, ShowButton, useDataGrid } from "@refinedev/mui";
 import { useSearchParams } from "react-router-dom";
 import type { DailyPanchanga } from "../../types/panchanga";
@@ -31,11 +31,25 @@ export const PanchangaList = () => {
 
   const columns: GridColDef<DailyPanchanga>[] = [
     { field: "panchanga_date", headerName: "Date", width: 125 },
+    { field: "language", headerName: "Language", width: 100 },
+    { field: "krishna_shaka_year", headerName: "Krishna Shaka Year", width: 175 },
+    { field: "shalivahana_shaka_year", headerName: "Shalivahana Shaka Year", width: 200 },
+    { field: "kali_yuga_year", headerName: "Kali Yuga Year", width: 150 },
     { field: "samvatsara", headerName: "ಸಂವತ್ಸರ", width: 140 },
+    { field: "ayana", headerName: "ಆಯನ", width: 140 },
+    { field: "rutu", headerName: "ಋತು", width: 140 },
     { field: "masa", headerName: "ಮಾಸ", width: 120 },
     { field: "paksha", headerName: "ಪಕ್ಷ", width: 110 },
     { field: "tithi", headerName: "ತಿಥಿ", width: 130 },
+    { field: "vasara", headerName: "ವಾಸರ", width: 140 },
+    { field: "weekday", headerName: "ವಾರ", width: 130 },
     { field: "nakshatra", headerName: "ನಕ್ಷತ್ರ", width: 140 },
+    { field: "yoga", headerName: "ಯೋಗ", width: 140 },
+    { field: "karana", headerName: "ಕರಣ", width: 140 },
+    { field: "display_date", headerName: "Display Date", width: 220 },
+    { field: "special_note", headerName: "Special Note 1", width: 220 },
+    { field: "special_note2", headerName: "Special Note 2", width: 220 },
+    { field: "special_note3", headerName: "Special Note 3", width: 220 },
     {
       field: "approve_status",
       headerName: "Status",
@@ -80,7 +94,19 @@ export const PanchangaList = () => {
           Clear filter
         </Button>
       </Stack>
-      <DataGrid {...dataGridProps} columns={columns} autoHeight />
+      <DataGrid
+        {...dataGridProps}
+        columns={columns}
+        autoHeight
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{
+          toolbar: {
+            showQuickFilter: true,
+            csvOptions: { disableToolbarButton: true },
+            printOptions: { disableToolbarButton: true },
+          },
+        }}
+      />
     </List>
   );
 };
