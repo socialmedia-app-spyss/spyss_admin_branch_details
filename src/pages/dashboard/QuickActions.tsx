@@ -6,7 +6,7 @@ import { useGetIdentity } from "@refinedev/core";
 interface UserProfile {
   id: string;
   email: string;
-  role: "SUPER_ADMIN" | "STATE_ADMIN" | "DISTRICT_ADMIN" | "VALAYA_ADMIN" | "BRANCH_ADMIN" | "USER";
+  role: "SUPER_ADMIN" | "STATE_ADMIN" | "DISTRICT_ADMIN" | "VALAYA_ADMIN" | "BRANCH_ADMIN" | "PANCHANGA_ADMIN" | "USER";
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 }
 
@@ -20,12 +20,18 @@ export const QuickActions: React.FC = () => {
     identity?.role === "VALAYA_ADMIN" ||
     identity?.role === "BRANCH_ADMIN";
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
+  const canManagePanchanga = isSuperAdmin || identity?.role === "PANCHANGA_ADMIN";
 
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
       <Button variant="contained" onClick={() => navigate("/branches/create")} disabled={!isAdminOrSuperAdmin}>
         + Create Branch
       </Button>
+      {canManagePanchanga && (
+        <Button variant="contained" onClick={() => navigate("/panchanga/create")}>
+          + Create Panchanga
+        </Button>
+      )}
           {isSuperAdmin && (
             <>
               <Button variant="contained" onClick={() => navigate("/notifications/create")}>

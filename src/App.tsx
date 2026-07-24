@@ -31,6 +31,7 @@ import { Authenticated } from "@refinedev/core";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { NotificationList } from "./resources/notifications/list";
 import { NotificationCreate } from "./resources/notifications/create";
 import { NotificationEdit } from "./resources/notifications/edit";
@@ -39,6 +40,10 @@ import { EventList } from "./resources/events/list";
 import { EventCreate } from "./resources/events/create";
 import { EventEdit } from "./resources/events/edit";
 import { EventShow } from "./resources/events/show";
+import { PanchangaList } from "./resources/panchanga/list";
+import { PanchangaCreate } from "./resources/panchanga/create";
+import { PanchangaEdit } from "./resources/panchanga/edit";
+import { PanchangaShow } from "./resources/panchanga/show";
 
 function App() {
   return (
@@ -98,6 +103,14 @@ function App() {
                   show: "/events/show/:id",
                   meta: { label: "Events", icon: <EventIcon /> },
                 },
+                {
+                  name: "daily_panchanga",
+                  list: "/panchanga",
+                  create: "/panchanga/create",
+                  edit: "/panchanga/edit/:id",
+                  show: "/panchanga/show/:id",
+                  meta: { label: "Daily Panchanga", icon: <CalendarMonthIcon /> },
+                },
               ]}
             >
               <Routes>
@@ -132,6 +145,12 @@ function App() {
                     <Route path="/events/create" element={<EventCreate />} />
                     <Route path="/events/edit/:id" element={<EventEdit />} />
                     <Route path="/events/show/:id" element={<EventShow />} />
+                  </Route>
+                  <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN", "PANCHANGA_ADMIN"]} />}>
+                    <Route path="/panchanga" element={<PanchangaList />} />
+                    <Route path="/panchanga/create" element={<PanchangaCreate />} />
+                    <Route path="/panchanga/edit/:id" element={<PanchangaEdit />} />
+                    <Route path="/panchanga/show/:id" element={<PanchangaShow />} />
                   </Route>
                 </Route>
 

@@ -4,6 +4,7 @@ export type UserRole =
   | "DISTRICT_ADMIN"
   | "VALAYA_ADMIN"
   | "BRANCH_ADMIN"
+  | "PANCHANGA_ADMIN"
   | "USER";
 
 export type UserStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
@@ -15,6 +16,7 @@ export const userRoleOptions: UserRole[] = [
   "DISTRICT_ADMIN",
   "VALAYA_ADMIN",
   "BRANCH_ADMIN",
+  "PANCHANGA_ADMIN",
   "USER",
 ];
 

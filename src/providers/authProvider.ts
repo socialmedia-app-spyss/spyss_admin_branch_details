@@ -7,7 +7,8 @@ type AdminRole =
   | "STATE_ADMIN"
   | "DISTRICT_ADMIN"
   | "VALAYA_ADMIN"
-  | "BRANCH_ADMIN";
+  | "BRANCH_ADMIN"
+  | "PANCHANGA_ADMIN";
 
 type AppRole = AdminRole | "USER";
 
@@ -25,6 +26,7 @@ const ADMIN_ROLES: AdminRole[] = [
   "DISTRICT_ADMIN",
   "VALAYA_ADMIN",
   "BRANCH_ADMIN",
+  "PANCHANGA_ADMIN",
 ];
 
 const VALAYA_ADMIN_RESOURCES = [
@@ -39,6 +41,7 @@ const VALAYA_ADMIN_RESOURCES = [
 ];
 
 const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events"];
+const PANCHANGA_RESOURCES = ["daily_panchanga"];
 
 const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
   const { data: authData, error: authError } =
@@ -185,6 +188,15 @@ export const authProvider = {
 
     if (userRole === "SUPER_ADMIN") {
       return { can: true };
+    }
+
+    if (userRole === "PANCHANGA_ADMIN") {
+      return {
+        can: resource === "dashboard" ||
+          (resource !== undefined &&
+            PANCHANGA_RESOURCES.includes(resource) &&
+            _action !== "delete"),
+      };
     }
 
     if (!resource || SUPER_ADMIN_ONLY_RESOURCES.includes(resource)) {

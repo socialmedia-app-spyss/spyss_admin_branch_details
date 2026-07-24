@@ -9,6 +9,7 @@ export const useUserRole = () => {
       "DISTRICT_ADMIN",
       "VALAYA_ADMIN",
       "BRANCH_ADMIN",
+      "PANCHANGA_ADMIN",
     ];
 
     return {

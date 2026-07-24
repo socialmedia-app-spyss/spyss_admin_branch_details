@@ -45,7 +45,7 @@ export const userService = {
             }
         : role === "BRANCH_ADMIN"
           ? scope
-        : role === "SUPER_ADMIN"
+        : role === "SUPER_ADMIN" || role === "PANCHANGA_ADMIN"
           ? {
               state_id: null,
               district_id: null,
@@ -132,7 +132,7 @@ export const userService = {
             }
         : role === "BRANCH_ADMIN"
           ? scope
-        : role === "SUPER_ADMIN"
+        : role === "SUPER_ADMIN" || role === "PANCHANGA_ADMIN"
           ? {
               state_id: null,
               district_id: null,

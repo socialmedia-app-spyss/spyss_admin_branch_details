@@ -11,6 +11,7 @@ import { NotificationStats } from "./NotificationStats";
 import { EventStats } from "./EventStats";
 import { UserStats } from "./UserStats";
 import { Box, Stack, Typography } from "@mui/material";
+import { PanchangaStats } from "./PanchangaStats";
 
 export const DashboardPage: React.FC = () => {
     const { data: currentUser } = useGetIdentity<{ name: string; email: string; role: string }>();
@@ -24,13 +25,22 @@ export const DashboardPage: React.FC = () => {
         <QuickActions />
       </Stack>
 
-      <Box sx={{ mt: 3 }}>
+      {currentUser?.role !== "PANCHANGA_ADMIN" && <Box sx={{ mt: 3 }}>
         <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "primary.main", color: "primary.contrastText" }}>
           Branch Overview
         </Typography>
         <DashboardStats />
         <ValayaBranchCounts />
-      </Box>
+      </Box>}
+
+      {(currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "PANCHANGA_ADMIN") && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "success.main", color: "success.contrastText" }}>
+            Panchanga Overview
+          </Typography>
+          <PanchangaStats />
+        </Box>
+      )}
 
       {currentUser?.role === "SUPER_ADMIN" && (
         <>
@@ -51,12 +61,12 @@ export const DashboardPage: React.FC = () => {
         </>
       )}
 
-      <Box sx={{ mt: 3 }}>
+      {currentUser?.role !== "PANCHANGA_ADMIN" && <Box sx={{ mt: 3 }}>
         <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "secondary.main", color: "secondary.contrastText" }}>
           User Overview
         </Typography>
         <UserStats />
-      </Box>
+      </Box>}
       {/*<div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>*/}
       {/*  <div style={{ flex: 1 }}>*/}
       {/*    <RecentBranches />*/}

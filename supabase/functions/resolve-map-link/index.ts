@@ -7,6 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const googleMapsRequestHeaders = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-IN,en;q=0.9",
+};
+
 type OpenStreetMapAddress = {
   neighbourhood?: string;
   suburb?: string;
@@ -253,7 +261,144 @@ function extractLatLngFromText(input: string) {
     }
   }
 
+  // Fallback for exact place-pin values in large Google Maps HTML responses
+  // where decoding the entire document fails because of an unrelated malformed
+  // percent sequence. Keep this after the existing decoded patterns so the
+  // normal extraction path always has priority.
+  const encodedDecimalPatterns: Array<{
+    source: string;
+    regex: RegExp;
+    order: "lat_lng" | "lng_lat";
+  }> = [
+    {
+      source: "encoded_place_pin_3d_4d",
+      regex: /%213d(-?\d+(?:\.\d+)?)%214d(-?\d+(?:\.\d+)?)/i,
+      order: "lat_lng",
+    },
+    {
+      source: "encoded_place_pin_1d_2d",
+      regex: /%211d(-?\d+(?:\.\d+)?)%212d(-?\d+(?:\.\d+)?)/i,
+      order: "lng_lat",
+    },
+  ];
+
+  for (const pattern of encodedDecimalPatterns) {
+    const match = input.match(pattern.regex);
+
+    if (!match) {
+      continue;
+    }
+
+    const firstValue = Number(match[1]);
+    const secondValue = Number(match[2]);
+    const latitude = pattern.order === "lng_lat" ? secondValue : firstValue;
+    const longitude = pattern.order === "lng_lat" ? firstValue : secondValue;
+
+    if (isValidLatLng(latitude, longitude)) {
+      return {
+        latitude,
+        longitude,
+        source: pattern.source,
+      };
+    }
+  }
+
   return null;
+}
+
+function extractGoogleMapsFeatureId(input: string) {
+  return input.match(/0x[0-9a-f]+:0x[0-9a-f]+/i)?.[0] || null;
+}
+
+function extractGoogleMapsPreviewUrl(input: string, baseUrl: string) {
+  try {
+    const htmlDecoded = input
+      .replace(/&amp;/gi, "&")
+      .replace(/&#38;/g, "&")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\u003d/gi, "=");
+    const match = htmlDecoded.match(
+      /href=["']([^"']*\/maps\/preview\/place\?[^"']+)["']/i
+    );
+
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const previewUrl = new URL(match[1], baseUrl);
+
+    if (
+      !isAllowedGoogleMapsUrl(previewUrl.toString()) ||
+      previewUrl.pathname !== "/maps/preview/place"
+    ) {
+      return null;
+    }
+
+    return previewUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
+function escapeRegExp(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractLatLngForFeatureId(input: string, featureId: string) {
+  const escapedFeatureId = escapeRegExp(featureId);
+  const featureCoordinatesPattern = new RegExp(
+    `\\[null,null,(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)\\],"${escapedFeatureId}"`,
+    "i"
+  );
+  const match = input.match(featureCoordinatesPattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const latitude = Number(match[1]);
+  const longitude = Number(match[2]);
+
+  if (!isValidLatLng(latitude, longitude)) {
+    return null;
+  }
+
+  return {
+    latitude,
+    longitude,
+    source: "google_maps_preview_place",
+  };
+}
+
+async function resolveCoordinatesFromGoogleMapsPreview(
+  responseBody: string,
+  finalUrl: string
+) {
+  const featureId = extractGoogleMapsFeatureId(finalUrl);
+  const previewUrl = extractGoogleMapsPreviewUrl(responseBody, finalUrl);
+
+  if (!featureId || !previewUrl) {
+    return null;
+  }
+
+  try {
+    const previewResponse = await fetch(previewUrl, {
+      method: "GET",
+      redirect: "follow",
+      headers: googleMapsRequestHeaders,
+    });
+
+    if (!previewResponse.ok) {
+      console.warn("Google Maps preview request failed:", previewResponse.status);
+      return null;
+    }
+
+    const previewBody = await previewResponse.text();
+    return extractLatLngForFeatureId(previewBody, featureId);
+  } catch (error) {
+    console.warn("Google Maps preview coordinate extraction failed:", error);
+    return null;
+  }
 }
 
 function decodeGoogleMapsAddressPart(input: string) {
@@ -708,13 +853,7 @@ serve(async (req) => {
     const response = await fetch(url, {
       method: "GET",
       redirect: "follow",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-IN,en;q=0.9",
-      },
+      headers: googleMapsRequestHeaders,
     });
 
     const finalUrl = response.url;
@@ -766,6 +905,13 @@ serve(async (req) => {
 
     if (!coordinates && responseBody) {
       coordinates = extractLatLngFromText(responseBody);
+    }
+
+    if (!coordinates && responseBody) {
+      coordinates = await resolveCoordinatesFromGoogleMapsPreview(
+        responseBody,
+        finalUrl
+      );
     }
 
     // Address from HTML body is not very reliable.
