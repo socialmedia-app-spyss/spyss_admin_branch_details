@@ -35,6 +35,7 @@ export const PanchangaForm = ({ register, control, errors }: Props) => (
                 label={name.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ")}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
+                InputProps={{ readOnly: name === "kali_yuga_year" }}
               />
             </Grid>
           ))}

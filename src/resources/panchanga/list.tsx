@@ -2,7 +2,7 @@ import CancelIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { Alert, Button, Chip, Snackbar, Stack, TextField, Tooltip } from "@mui/material";
+import { Alert, Button, Chip, IconButton, Snackbar, Stack, TextField, Tooltip } from "@mui/material";
 import {
   type CrudFilters,
   type HttpError,
@@ -12,7 +12,6 @@ import {
 } from "@refinedev/core";
 import {
   DataGrid,
-  GridActionsCellItem,
   GridRowEditStopReasons,
   GridRowModes,
   GridToolbar,
@@ -86,7 +85,7 @@ const emptyPanchangaRow = (id: string): PanchangaGridRow => ({
   date_index: 0,
   krishna_shaka_year: null,
   shalivahana_shaka_year: null,
-  kali_yuga_year: null,
+  kali_yuga_year: 28,
   samvatsara: "",
   ayana: "",
   rutu: "",
@@ -128,7 +127,6 @@ const DateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => (
 
 const krishnaShakaYears = Array.from({ length: 6 }, (_, index) => 5128 + index);
 const shalivahanaShakaYears = Array.from({ length: 6 }, (_, index) => 1949 + index);
-const kaliYugaYears = Array.from({ length: 6 }, (_, index) => 28 + index);
 
 export const PanchangaList = () => {
   const { data: identity } = useGetIdentity<UserProfile>();
@@ -316,6 +314,8 @@ export const PanchangaList = () => {
       renderEditCell: DateEditCell,
       preProcessEditCellProps: (params) =>
         validateDateLanguage(params, "panchanga_date"),
+      headerClassName: "panchanga-pinned-left",
+      cellClassName: "panchanga-pinned-left",
     },
     {
       field: "language",
@@ -346,9 +346,8 @@ export const PanchangaList = () => {
       field: "kali_yuga_year",
       headerName: "Kali Yuga Year",
       width: 150,
-      editable: true,
-      type: "singleSelect",
-      valueOptions: kaliYugaYears,
+      editable: false,
+      type: "number",
     },
     ...optionColumns,
     { field: "display_date", headerName: "Display Date", width: 220, editable: true },
@@ -375,55 +374,65 @@ export const PanchangaList = () => {
     },
     {
       field: "actions",
-      type: "actions",
       headerName: "Actions",
       width: 170,
       sortable: false,
       filterable: false,
       hideable: false,
-      getActions: ({ id, row }) => {
+      headerClassName: "panchanga-pinned-right",
+      cellClassName: "panchanga-pinned-right",
+      renderCell: ({ id, row }) => {
         const isEditing = rowModesModel[id]?.mode === GridRowModes.Edit;
         if (isEditing) {
-          return [
-            <GridActionsCellItem
-              key="save"
-              icon={
-                <Tooltip title="Save">
+          return (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Save">
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    saveRow(id);
+                  }}
+                >
                   <SaveIcon />
-                </Tooltip>
-              }
-              label="Save"
-              onClick={() => saveRow(id)}
-            />,
-            <GridActionsCellItem
-              key="cancel"
-              icon={
-                <Tooltip title="Cancel">
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Cancel">
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    cancelEdit(id, row.isNew);
+                  }}
+                >
                   <CancelIcon />
-                </Tooltip>
-              }
-              label="Cancel"
-              onClick={() => cancelEdit(id, row.isNew)}
-            />,
-          ];
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          );
         }
 
-        return [
-          <ShowButton key="show" hideText recordItemId={id} />,
-          <GridActionsCellItem
-            key="edit"
-            icon={
-              <Tooltip title="Edit inline">
+        return (
+          <Stack direction="row" spacing={0.5}>
+            <ShowButton hideText recordItemId={id} />
+            <Tooltip title="Edit inline">
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  startEdit(id);
+                }}
+              >
                 <EditIcon />
-              </Tooltip>
-            }
-            label="Edit"
-            onClick={() => startEdit(id)}
-          />,
-          ...(identity?.role === "SUPER_ADMIN"
-            ? [<DeleteButton key="delete" hideText recordItemId={id} />]
-            : []),
-        ];
+              </IconButton>
+            </Tooltip>
+            {identity?.role === "SUPER_ADMIN" && (
+              <DeleteButton hideText recordItemId={id} />
+            )}
+          </Stack>
+        );
       },
     },
   ];
@@ -477,6 +486,30 @@ export const PanchangaList = () => {
           rowModesModel[id]?.mode === GridRowModes.Edit ? "auto" : null
         }
         getEstimatedRowHeight={() => 84}
+        sx={{
+          "& .panchanga-pinned-left": {
+            position: "sticky",
+            left: 0,
+            zIndex: 3,
+            bgcolor: "background.paper",
+            boxShadow: "2px 0 4px -2px rgba(0,0,0,0.28)",
+          },
+          "& .panchanga-pinned-right": {
+            position: "sticky",
+            right: 0,
+            zIndex: 3,
+            bgcolor: "background.paper",
+            boxShadow: "-2px 0 4px -2px rgba(0,0,0,0.28)",
+          },
+          "& .MuiDataGrid-columnHeader.panchanga-pinned-left, & .MuiDataGrid-columnHeader.panchanga-pinned-right":
+            {
+              zIndex: 4,
+            },
+          "& .MuiDataGrid-cell--editing.panchanga-pinned-left, & .MuiDataGrid-cell--editing.panchanga-pinned-right":
+            {
+              bgcolor: "background.paper",
+            },
+        }}
         onProcessRowUpdateError={(error) => {
           setSaveError(error instanceof Error ? error.message : "Unable to save this Panchanga row.");
         }}
