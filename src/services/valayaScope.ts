@@ -105,10 +105,12 @@ export const getValayaScopeForUser = async (
     .eq("id", userProfile.valaya_id)
     .maybeSingle();
 
-  if (userValayaError || !userValaya?.valaya_code) {
-    if (userValayaError) {
-      console.error("getValayaScopeForUser: Error fetching user valaya:", userValayaError);
-    }
+  if (userValayaError) {
+    console.error("getValayaScopeForUser: Error fetching user valaya:", userValayaError);
+    throw userValayaError;
+  }
+
+  if (!userValaya?.valaya_code) {
     return empty;
   }
 
@@ -124,6 +126,7 @@ export const getValayaScopeForUser = async (
       "getValayaScopeForUser: Error fetching accessible valaya rows:",
       valayaRowsError,
     );
+    throw valayaRowsError;
   }
 
   const normalizedUserValaya = normalizeValayaOption(userValaya as ValayaOptionRow);

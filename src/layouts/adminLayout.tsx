@@ -1,6 +1,6 @@
 import React from "react";
 import { ThemedLayout } from "@refinedev/mui";
-import { Box, Typography } from "@mui/material"; // Import Box and Typography
+import { Box, GlobalStyles, Typography } from "@mui/material"; // Import Box and Typography
 import { Header } from "../components/header";
 
 export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -34,8 +34,22 @@ export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <ThemedLayout Title={CustomTitle} Header={Header}>
-      {children}
-    </ThemedLayout>
+    <>
+      <GlobalStyles styles={(theme) => ({
+        ".MuiDrawer-root .MuiListItemButton-root.Mui-selected": {
+          backgroundColor: `${theme.palette.primary.main} !important`,
+          color: `${theme.palette.primary.contrastText} !important`,
+          borderRadius: 8,
+          marginInline: 8,
+          width: "calc(100% - 16px)",
+        },
+        ".MuiDrawer-root .MuiListItemButton-root.Mui-selected .MuiSvgIcon-root": {
+          color: `${theme.palette.primary.contrastText} !important`,
+        },
+      })} />
+      <ThemedLayout Title={CustomTitle} Header={Header}>
+        {children}
+      </ThemedLayout>
+    </>
   );
 };

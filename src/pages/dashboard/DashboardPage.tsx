@@ -1,84 +1,86 @@
-import React from "react";
-import { DashboardStats } from "./DashboardStats";
-import { ValayaBranchCounts } from "./ValayaBranchCounts";
-// import { RecentBranches } from "./RecentBranches";
-// import { UpcomingEvents } from "./UpcomingEvents";
-// import { PendingApprovals } from "./PendingApprovals";
-import { QuickActions } from "./QuickActions";
-import {useGetIdentity} from "@refinedev/core";
-import { RecentNotifications } from "./RecentNotifications";
-import { NotificationStats } from "./NotificationStats";
+import { Box, Paper, Stack, Typography } from "@mui/material";
+import { useGetIdentity } from "@refinedev/core";
+import type { ReactNode } from "react";
+import type { UserProfile } from "../../types/user";
+import { AttentionPanel } from "./AttentionPanel";
 import { EventStats } from "./EventStats";
-import { UserStats } from "./UserStats";
-import { Box, Stack, Typography } from "@mui/material";
+import { NotificationStats } from "./NotificationStats";
+import { OverviewStats } from "./OverviewStats";
 import { PanchangaStats } from "./PanchangaStats";
+import { QuickActions } from "./QuickActions";
+import { RecentNotifications } from "./RecentNotifications";
+import { ValayaBranchCounts } from "./ValayaBranchCounts";
 
-export const DashboardPage: React.FC = () => {
-    const { data: currentUser } = useGetIdentity<{ name: string; email: string; role: string }>();
-    return (
-    <Box>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} gap={2}>
+const DashboardSection = ({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) => (
+  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2.5 }}>
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="h6" fontWeight={700}>{title}</Typography>
+      {subtitle && <Typography variant="body2" color="text.secondary">{subtitle}</Typography>}
+    </Box>
+    {children}
+  </Paper>
+);
+
+export const DashboardPage = () => {
+  const { data: currentUser } = useGetIdentity<UserProfile & { name?: string }>();
+  const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+  const isPanchangaAdmin = currentUser?.role === "PANCHANGA_ADMIN";
+  const indiaHour = Number(new Intl.DateTimeFormat("en-IN", { hour: "2-digit", hour12: false, timeZone: "Asia/Kolkata" }).format(new Date()).split(":")[0]);
+  const greeting = indiaHour < 12 ? "Good morning" : indiaHour < 17 ? "Good afternoon" : "Good evening";
+
+  return (
+    <Box sx={{ maxWidth: 1600, mx: "auto", pb: 4 }}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        gap={2}
+        sx={{ mb: 3 }}
+      >
         <Box>
-          <Typography variant="h4" fontWeight={700}>Dashboard</Typography>
-          <Typography color="text.secondary">Welcome, {currentUser?.name || currentUser?.email}</Typography>
+          <Typography variant="h4" fontWeight={750}>{greeting},</Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.25 }}>
+            {currentUser?.full_name || currentUser?.name || currentUser?.email}
+          </Typography>
         </Box>
         <QuickActions />
       </Stack>
 
-      {currentUser?.role !== "PANCHANGA_ADMIN" && <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "primary.main", color: "primary.contrastText" }}>
-          Branch Overview
-        </Typography>
-        <DashboardStats />
-        <ValayaBranchCounts />
-      </Box>}
+      <Stack spacing={2.5}>
+        <AttentionPanel />
 
-      {(currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "PANCHANGA_ADMIN") && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "success.main", color: "success.contrastText" }}>
-            Panchanga Overview
-          </Typography>
-          <PanchangaStats />
+        {!isPanchangaAdmin && (
+          <Box>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>Overview</Typography>
+            <OverviewStats />
+          </Box>
+        )}
+
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, alignItems: "start" }}>
+          {!isPanchangaAdmin && (
+            <DashboardSection title="Branch details" subtitle="Valaya and district-wise branch counts">
+              <ValayaBranchCounts />
+            </DashboardSection>
+          )}
+          {(isSuperAdmin || isPanchangaAdmin) && (
+            <DashboardSection title="Panchanga status" subtitle="Approval progress and upcoming daily entries">
+              <PanchangaStats />
+            </DashboardSection>
+          )}
         </Box>
-      )}
 
-      {currentUser?.role === "SUPER_ADMIN" && (
-        <>
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "info.main", color: "info.contrastText" }}>
-              Event Overview
-            </Typography>
-            <EventStats />
+        {isSuperAdmin && (
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, alignItems: "start" }}>
+            <DashboardSection title="Events" subtitle="Current event lifecycle summary">
+              <EventStats />
+            </DashboardSection>
+            <DashboardSection title="Notifications" subtitle="Publication status and recent messages">
+              <NotificationStats />
+              <RecentNotifications />
+            </DashboardSection>
           </Box>
-
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "warning.main", color: "warning.contrastText" }}>
-              Notification Overview
-            </Typography>
-            <NotificationStats />
-            <RecentNotifications />
-          </Box>
-        </>
-      )}
-
-      {currentUser?.role !== "PANCHANGA_ADMIN" && <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, px: 2, py: 1.25, borderRadius: 1, bgcolor: "secondary.main", color: "secondary.contrastText" }}>
-          User Overview
-        </Typography>
-        <UserStats />
-      </Box>}
-      {/*<div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>*/}
-      {/*  <div style={{ flex: 1 }}>*/}
-      {/*    <RecentBranches />*/}
-      {/*  </div>*/}
-      {/*  <div style={{ flex: 1 }}>*/}
-      {/*    <UpcomingEvents />*/}
-      {/*  </div>*/}
-      {/*  <div style={{ flex: 1 }}>*/}
-      {/*    <RecentNotifications /> /!* Add RecentNotifications *!/*/}
-      {/*  </div>*/}
-      {/*</div>*/}
-      {/*<PendingApprovals />*/}
+        )}
+      </Stack>
     </Box>
   );
 };

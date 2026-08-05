@@ -2,16 +2,11 @@ import React, { useMemo } from "react";
 import { useGetIdentity, useList } from "@refinedev/core";
 import {
   Box,
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   CircularProgress,
   Divider,
-  Grid,
   Stack,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { UserProfile } from "../../types/user";
 import { useLanguage } from "../../hooks/useLanguage";
 import { getLocalizedName } from "../../utils/i18n";
@@ -115,71 +110,36 @@ export const ValayaBranchCounts: React.FC = () => {
   }, [language, result?.data]);
 
   if (query.isLoading) {
-    return (
-      <Accordion sx={{ mt: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography variant="h6">Valaya Wise Branch Count</Typography></AccordionSummary>
-        <AccordionDetails>
-          <CircularProgress size={24} />
-        </AccordionDetails>
-      </Accordion>
-    );
+    return <CircularProgress size={24} />;
   }
 
   if (query.isError) {
-    return (
-      <Accordion sx={{ mt: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography variant="h6">Valaya Wise Branch Count</Typography></AccordionSummary>
-        <AccordionDetails>
-          <Typography color="error">Error loading Valaya branch counts.</Typography>
-        </AccordionDetails>
-      </Accordion>
-    );
+    return <Typography color="error">Error loading Valaya branch counts.</Typography>;
   }
 
   return (
-    <Accordion sx={{ mt: 2 }}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: "100%", pr: 1 }}>
-          <Typography variant="h6">Valaya Wise Branch Count</Typography>
-          <Typography color="text.secondary">{valayaCounts.reduce((total, valaya) => total + valaya.total, 0)} branches</Typography>
-        </Stack>
-      </AccordionSummary>
-      <AccordionDetails>
-        {valayaCounts.length === 0 ? (
-          <Typography color="text.secondary">No branches found.</Typography>
-        ) : (
-          <Grid container spacing={2}>
-            {valayaCounts.map((valaya) => (
-              <Grid item xs={12} md={6} key={valaya.valayaKey}>
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                    <Typography variant="subtitle1">{valaya.valayaName}</Typography>
-                    <Typography variant="h5" color="primary">
-                      {valaya.total}
-                    </Typography>
-                  </Stack>
-                  <Divider sx={{ mb: 1 }} />
-                  <Stack spacing={1}>
-                    {valaya.districts.map((district) => (
-                      <Stack
-                        key={district.districtId}
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
-                      >
-                        <Typography variant="body2">{district.districtName}</Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {district.count}
-                        </Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
-                </Box>
-              </Grid>
+    <Stack spacing={1.5}>
+      <Stack direction="row" justifyContent="space-between">
+        <Typography variant="subtitle2" color="text.secondary">Valaya-wise count</Typography>
+        <Typography variant="body2" fontWeight={650}>{valayaCounts.reduce((total, valaya) => total + valaya.total, 0)} branches</Typography>
+      </Stack>
+      {valayaCounts.length === 0 ? <Typography color="text.secondary">No branches found.</Typography> : valayaCounts.map((valaya) => (
+        <Box key={valaya.valayaKey} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.75 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography fontWeight={700}>{valaya.valayaName}</Typography>
+            <Typography variant="h6" color="primary.main" fontWeight={750}>{valaya.total}</Typography>
+          </Stack>
+          <Divider sx={{ my: 1 }} />
+          <Stack spacing={0.75}>
+            {valaya.districts.map((district) => (
+              <Stack key={district.districtId} direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">{district.districtName}</Typography>
+                <Typography variant="body2" fontWeight={650}>{district.count}</Typography>
+              </Stack>
             ))}
-          </Grid>
-        )}
-      </AccordionDetails>
-    </Accordion>
+          </Stack>
+        </Box>
+      ))}
+    </Stack>
   );
 };

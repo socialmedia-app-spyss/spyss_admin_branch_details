@@ -31,9 +31,15 @@ export const NotificationStats = () => {
     <Grid container spacing={2}>
       {cards.map((card) => (
         <Grid item xs={12} sm={4} key={card.label}>
-          <Card>
+          <Card
+            variant="outlined"
+            sx={{
+              bgcolor: `${card.color === "primary.main" ? "#1976d2" : card.color === "success.main" ? "#2e7d32" : "#d32f2f"}0A`,
+              borderColor: `${card.color === "primary.main" ? "#1976d2" : card.color === "success.main" ? "#2e7d32" : "#d32f2f"}2E`,
+            }}
+          >
             <CardActionArea onClick={() => navigate("/notifications")}>
-              <CardContent>
+              <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
                 <Typography variant="h6">{card.label}</Typography>
                 <Typography variant="h4" sx={{ color: card.color }}>{card.count}</Typography>
               </CardContent>

@@ -42,9 +42,16 @@ export const EventStats = () => {
     <Grid container spacing={2}>
       {cards.map((card) => (
         <Grid item xs={12} sm={6} lg={3} key={card.label}>
-          <Card sx={{ height: "100%" }}>
+          <Card
+            variant="outlined"
+            sx={{
+              height: "100%",
+              bgcolor: `${card.color === "primary.main" ? "#1976d2" : card.color === "info.main" ? "#0288d1" : card.color === "warning.main" ? "#ed6c02" : "#2e7d32"}0A`,
+              borderColor: `${card.color === "primary.main" ? "#1976d2" : card.color === "info.main" ? "#0288d1" : card.color === "warning.main" ? "#ed6c02" : "#2e7d32"}2E`,
+            }}
+          >
             <CardActionArea onClick={() => navigate("/events")} sx={{ height: "100%" }}>
-              <CardContent>
+              <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
                 <Typography variant="h6">{card.label}</Typography>
                 <Typography variant="h4" sx={{ color: card.color }}>{card.count}</Typography>
               </CardContent>

@@ -1,5 +1,8 @@
 import React from "react";
-import { Button, Stack } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
+import { Button, Menu, MenuItem, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useGetIdentity } from "@refinedev/core";
 
@@ -11,6 +14,7 @@ interface UserProfile {
 }
 
 export const QuickActions: React.FC = () => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const { data: identity } = useGetIdentity<UserProfile>();
   const isAdminOrSuperAdmin =
@@ -24,27 +28,20 @@ export const QuickActions: React.FC = () => {
 
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-      <Button variant="contained" onClick={() => navigate("/branches/create")} disabled={!isAdminOrSuperAdmin}>
-        + Create Branch
+      <Button variant="contained" startIcon={<AddIcon />} onClick={(event) => setAnchorEl(event.currentTarget)}>
+        Create
       </Button>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+        {isAdminOrSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/branches/create"); }}>Create Branch</MenuItem>}
+        {isSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/notifications/create"); }}>Create Notification</MenuItem>}
+        {isSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/events/create"); }}>Create Event</MenuItem>}
+      </Menu>
       {canManagePanchanga && (
-        <Button variant="contained" onClick={() => navigate("/panchanga/create")}>
-          + Create Panchanga
+        <Button variant="outlined" startIcon={<CalendarMonthOutlinedIcon />} onClick={() => navigate("/panchanga")}>
+          Manage Panchanga
         </Button>
       )}
-          {isSuperAdmin && (
-            <>
-              <Button variant="contained" onClick={() => navigate("/notifications/create")}>
-                + Create Notification
-              </Button>
-              <Button variant="contained" onClick={() => navigate("/events/create")}>
-                + Create Event
-              </Button>
-              <Button variant="outlined" onClick={() => navigate("/users")}>
-                Manage Admin Users
-              </Button>
-            </>
-          )}
+      {isSuperAdmin && <Button variant="outlined" startIcon={<ManageAccountsOutlinedIcon />} onClick={() => navigate("/users")}>Manage Admin Users</Button>}
     </Stack>
   );
 };

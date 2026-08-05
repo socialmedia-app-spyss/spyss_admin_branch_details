@@ -13,6 +13,7 @@ type AdminRole =
 type AppRole = AdminRole | "USER";
 
 type ExtendedIdentity = UserProfile & {
+  name: string;
   valaya_code?: string | null;
   valaya_name?: string | null;
   accessible_valaya_rows?: ValayaScopeRow[];
@@ -43,39 +44,146 @@ const VALAYA_ADMIN_RESOURCES = [
 const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events"];
 const PANCHANGA_RESOURCES = ["daily_panchanga"];
 
-const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
-  const { data: authData, error: authError } =
-    await supabaseClient.auth.getUser();
+// Refine can call check(), getIdentity(), and can() at nearly the same time
+// while it resolves the current route. Share one lookup between those callers
+// instead of asking Supabase for the same user and profile for each hook.
+const IDENTITY_CACHE_TTL_MS = 5 * 60 * 1000;
 
-  if (authError || !authData.user) {
-    return null;
-  }
+let cachedIdentity: ExtendedIdentity | null | undefined;
+let identityCachedAt = 0;
+let identityRequest: Promise<ExtendedIdentity | null> | null = null;
+let identityCacheGeneration = 0;
 
-  const { data: profile, error: profileError } = await supabaseClient
-    .from("user_profiles")
-    .select("*")
-    .eq("id", authData.user.id)
-    .single();
+const isIdentityCacheValid = (): boolean =>
+  cachedIdentity !== undefined &&
+  Date.now() - identityCachedAt < IDENTITY_CACHE_TTL_MS;
 
-  if (profileError || !profile) {
-    console.error("getCurrentUserProfile: Error fetching user profile:", profileError);
-    return null;
-  }
-
-  const userProfile = profile as UserProfile;
-
-  const valayaScope = await getValayaScopeForUser(userProfile);
-
-  return {
-    ...authData.user,
-    ...userProfile,
-    valaya_code: valayaScope.valayaCode,
-    valaya_name: valayaScope.valayaNameEn,
-    accessible_valaya_rows: valayaScope.valayaRows,
-    accessible_valaya_ids: valayaScope.valayaRows.map((row) => row.id),
-    accessible_district_ids: valayaScope.districtIds,
-  } as ExtendedIdentity;
+const clearIdentityCache = () => {
+  identityCacheGeneration += 1;
+  cachedIdentity = undefined;
+  identityCachedAt = 0;
+  identityRequest = null;
 };
+
+const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
+  if (isIdentityCacheValid()) {
+    return cachedIdentity ?? null;
+  }
+
+  if (identityRequest) {
+    return identityRequest;
+  }
+
+  const requestGeneration = identityCacheGeneration;
+  const request = (async (): Promise<ExtendedIdentity | null> => {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
+
+    if (authError) {
+      // Supabase reports a missing browser session as an Auth error even
+      // though this is the normal state on the login page.
+      if (authError.name === "AuthSessionMissingError") {
+        if (requestGeneration === identityCacheGeneration) {
+          cachedIdentity = null;
+          identityCachedAt = Date.now();
+        }
+        return null;
+      }
+
+      throw authError;
+    }
+
+    if (!user) {
+      if (requestGeneration === identityCacheGeneration) {
+        cachedIdentity = null;
+        identityCachedAt = Date.now();
+      }
+      return null;
+    }
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from("user_profiles")
+      .select(`
+        id,
+        email,
+        full_name,
+        phone_number,
+        role,
+        status,
+        state_id,
+        district_id,
+        valaya_id,
+        branch_id,
+        display_order,
+        is_active,
+        created_at,
+        updated_at,
+        approved_by,
+        approved_at,
+        created_by,
+        updated_by
+      `)
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (!profile) {
+      throw new Error(`No user profile exists for authenticated user ${user.id}`);
+    }
+
+    const userProfile = profile as UserProfile;
+
+    const valayaScope = await getValayaScopeForUser(userProfile);
+
+    const identity: ExtendedIdentity = {
+      ...userProfile,
+      name: userProfile.full_name,
+      valaya_code: valayaScope.valayaCode,
+      valaya_name: valayaScope.valayaNameEn,
+      accessible_valaya_rows: valayaScope.valayaRows,
+      accessible_valaya_ids: valayaScope.valayaRows.map((row) => row.id),
+      accessible_district_ids: valayaScope.districtIds,
+    };
+
+    if (requestGeneration === identityCacheGeneration) {
+      cachedIdentity = identity;
+      identityCachedAt = Date.now();
+    }
+
+    return identity;
+  })();
+
+  identityRequest = request;
+
+  try {
+    return await request;
+  } catch (error) {
+    console.error("getCurrentUserProfile: Identity lookup failed:", error);
+    throw error;
+  } finally {
+    if (identityRequest === request) {
+      identityRequest = null;
+    }
+  }
+};
+
+// This module is loaded once, so a single listener invalidates cached identity
+// when Supabase changes the session outside the provider's own methods.
+supabaseClient.auth.onAuthStateChange((event) => {
+  if (
+    event === "SIGNED_IN" ||
+    event === "SIGNED_OUT" ||
+    event === "USER_UPDATED" ||
+    event === "PASSWORD_RECOVERY"
+  ) {
+    clearIdentityCache();
+  }
+});
 
 export const authProvider = {
   login: async ({ email, password }: { email: string; password: string }) => {
@@ -88,36 +196,51 @@ export const authProvider = {
       return { success: false, error };
     }
 
+    clearIdentityCache();
     return { success: true, redirectTo: "/dashboard" };
   },
 
   logout: async () => {
-    await supabaseClient.auth.signOut();
+    try {
+      await supabaseClient.auth.signOut();
+    } finally {
+      clearIdentityCache();
+    }
     return { success: true, redirectTo: "/login" };
   },
 
   check: async () => {
-    const identity = await getCurrentUserProfile();
+    try {
+      const identity = await getCurrentUserProfile();
 
-    if (!identity) {
-      return { authenticated: false, redirectTo: "/login" };
-    }
+      if (!identity) {
+        return { authenticated: false, logout: true, redirectTo: "/login" };
+      }
 
-    if (identity.status !== "APPROVED" || !identity.is_active) {
+      if (identity.status !== "APPROVED" || !identity.is_active) {
+        return {
+          authenticated: false,
+          redirectTo: "/access-denied",
+        };
+      }
+
+      if (!ADMIN_ROLES.includes(identity.role as AdminRole)) {
+        return {
+          authenticated: false,
+          redirectTo: "/access-denied",
+        };
+      }
+
+      return { authenticated: true };
+    } catch (error) {
+      console.error("Authentication check failed:", error);
       return {
         authenticated: false,
-        redirectTo: "/access-denied",
+        error: error instanceof Error
+          ? error
+          : new Error("Authentication check failed"),
       };
     }
-
-    if (!ADMIN_ROLES.includes(identity.role as AdminRole)) {
-      return {
-        authenticated: false,
-        redirectTo: "/access-denied",
-      };
-    }
-
-    return { authenticated: true };
   },
 
   getIdentity: async () => {
@@ -138,6 +261,8 @@ export const authProvider = {
       console.error("Register: Supabase auth.signUp error:", error);
       return { success: false, error };
     }
+
+    clearIdentityCache();
 
     if (data.user) {
       const { error: profileError } = await supabaseClient

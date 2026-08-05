@@ -2,7 +2,7 @@ import CancelIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { Alert, Button, Chip, IconButton, Snackbar, Stack, TextField, Tooltip } from "@mui/material";
+import { Alert, Button, Chip, IconButton, MenuItem, Snackbar, Stack, TextField, Tooltip } from "@mui/material";
 import {
   type CrudFilters,
   type HttpError,
@@ -28,10 +28,10 @@ import { useSearchParams } from "react-router-dom";
 import type { DailyPanchanga, DailyPanchangaInput } from "../../types/panchanga";
 import type { UserProfile } from "../../types/user";
 import { supabaseClient } from "../../supabaseClient";
-import { normalizePanchanga } from "./create";
+import { normalizePanchanga } from "./normalize";
 import { getKannadaDisplayDate } from "./displayDate";
 import { getPanchangaMonthRange, isPanchangaMonth } from "./monthFilter";
-import { panchangaOptions } from "./options";
+import { getWeekdayVasaraForDate, panchangaOptions, weekdayVasaraPairs } from "./options";
 
 type PanchangaGridRow = DailyPanchanga & { isNew?: boolean };
 type OptionField = keyof typeof panchangaOptions;
@@ -123,6 +123,19 @@ const DateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => (
         field: "display_date",
         value: getKannadaDisplayDate(date),
       });
+      const pair = getWeekdayVasaraForDate(date);
+      if (pair) {
+        void params.api.setEditCellValue({
+          id: params.id,
+          field: "weekday",
+          value: pair.weekday,
+        });
+        void params.api.setEditCellValue({
+          id: params.id,
+          field: "vasara",
+          value: pair.vasara,
+        });
+      }
     }}
     fullWidth
     size="small"
@@ -140,6 +153,48 @@ const DisplayDateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>)
     InputProps={{ readOnly: true }}
   />
 );
+
+const OptionEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => {
+  const field = params.field as OptionField;
+
+  return (
+    <TextField
+      select
+      value={params.value ?? ""}
+      onChange={(event) => {
+        const value = event.target.value;
+        void params.api.setEditCellValue({ id: params.id, field, value });
+
+        if (field === "weekday") {
+          const pair = weekdayVasaraPairs.find(({ weekday }) => weekday === value);
+          if (pair) {
+            void params.api.setEditCellValue({
+              id: params.id,
+              field: "vasara",
+              value: pair.vasara,
+            });
+          }
+        } else if (field === "vasara") {
+          const pair = weekdayVasaraPairs.find(({ vasara }) => vasara === value);
+          if (pair) {
+            void params.api.setEditCellValue({
+              id: params.id,
+              field: "weekday",
+              value: pair.weekday,
+            });
+          }
+        }
+      }}
+      fullWidth
+      size="small"
+    >
+      {field === "vasara" && <MenuItem value=""><em>None</em></MenuItem>}
+      {panchangaOptions[field].map((option) => (
+        <MenuItem key={option} value={option}>{option}</MenuItem>
+      ))}
+    </TextField>
+  );
+};
 
 const krishnaShakaYears = Array.from({ length: 6 }, (_, index) => 5128 + index);
 const shalivahanaShakaYears = Array.from({ length: 6 }, (_, index) => 1949 + index);
@@ -318,6 +373,7 @@ export const PanchangaList = () => {
       editable: true,
       type: "singleSelect",
       valueOptions: [...panchangaOptions[field]],
+      renderEditCell: OptionEditCell,
     }),
   );
 
@@ -504,6 +560,7 @@ export const PanchangaList = () => {
         rows={[...newRows, ...dataGridProps.rows] as PanchangaGridRow[]}
         rowCount={(dataGridProps.rowCount ?? 0) + newRows.length}
         columns={columns}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         autoHeight
         columnBufferPx={10000}
         editMode="row"
