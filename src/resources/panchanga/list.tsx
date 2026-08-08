@@ -36,6 +36,8 @@ import { getWeekdayVasaraForDate, panchangaOptions, weekdayVasaraPairs } from ".
 type PanchangaGridRow = DailyPanchanga & { isNew?: boolean };
 type OptionField = keyof typeof panchangaOptions;
 
+const SPECIAL_NOTE_MAX_LENGTH = 75;
+
 const optionLabels: Record<OptionField, string> = {
   samvatsara: "ಸಂವತ್ಸರ",
   ayana: "ಆಯನ",
@@ -151,6 +153,31 @@ const DisplayDateEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>)
     fullWidth
     size="small"
     InputProps={{ readOnly: true }}
+  />
+);
+
+const SpecialNoteEditCell = ({
+  onValueChange,
+  ...params
+}: GridRenderEditCellParams<PanchangaGridRow> & { onValueChange: () => void }) => (
+  <TextField
+    value={params.value ?? ""}
+    onChange={(event) => {
+      onValueChange();
+      void params.api.setEditCellValue({
+        id: params.id,
+        field: params.field,
+        value: event.target.value,
+      });
+    }}
+    fullWidth
+    size="small"
+    error={Boolean(params.error)}
+    helperText={
+      params.error
+        ? String(params.validationMessage ?? `Special Note 1 must be ${SPECIAL_NOTE_MAX_LENGTH} characters or fewer.`)
+        : undefined
+    }
   />
 );
 
@@ -286,6 +313,12 @@ export const PanchangaList = () => {
   const processRowUpdate = async (newRow: PanchangaGridRow) => {
     setSaveError("");
     const values = editableInput(newRow);
+
+    if ((values.special_note?.length ?? 0) > SPECIAL_NOTE_MAX_LENGTH) {
+      throw new Error(
+        `Special Note 1 must be ${SPECIAL_NOTE_MAX_LENGTH} characters or fewer.`,
+      );
+    }
 
     if (newRow.isNew) {
       const response = await createPanchanga({
@@ -435,7 +468,28 @@ export const PanchangaList = () => {
       editable: true,
       renderEditCell: DisplayDateEditCell,
     },
-    { field: "special_note", headerName: "Special Note 1", width: 220, editable: true },
+    {
+      field: "special_note",
+      headerName: "Special Note 1",
+      width: 220,
+      editable: true,
+      renderEditCell: (params) => (
+        <SpecialNoteEditCell
+          {...params}
+          onValueChange={() => setSaveError("")}
+        />
+      ),
+      preProcessEditCellProps: (params) => {
+        const isTooLong = String(params.props.value ?? "").length > SPECIAL_NOTE_MAX_LENGTH;
+        return {
+          ...params.props,
+          error: isTooLong,
+          validationMessage: isTooLong
+            ? `Special Note 1 must be ${SPECIAL_NOTE_MAX_LENGTH} characters or fewer.`
+            : undefined,
+        };
+      },
+    },
     { field: "special_note2", headerName: "Special Note 2", width: 220, editable: true },
     { field: "special_note3", headerName: "Special Note 3", width: 220, editable: true },
     {

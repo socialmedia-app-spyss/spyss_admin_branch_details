@@ -11,8 +11,28 @@ import { QuickActions } from "./QuickActions";
 import { RecentNotifications } from "./RecentNotifications";
 import { ValayaBranchCounts } from "./ValayaBranchCounts";
 
-const DashboardSection = ({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) => (
-  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2.5 }}>
+const DashboardSection = ({
+  title,
+  subtitle,
+  children,
+  backgroundColor,
+  borderColor,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  backgroundColor: string;
+  borderColor: string;
+}) => (
+  <Paper
+    variant="outlined"
+    sx={{
+      p: { xs: 2, md: 2.5 },
+      borderRadius: 2.5,
+      bgcolor: backgroundColor,
+      borderColor,
+    }}
+  >
     <Box sx={{ mb: 2 }}>
       <Typography variant="h6" fontWeight={700}>{title}</Typography>
       {subtitle && <Typography variant="body2" color="text.secondary">{subtitle}</Typography>}
@@ -58,12 +78,22 @@ export const DashboardPage = () => {
 
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, alignItems: "start" }}>
           {!isPanchangaAdmin && (
-            <DashboardSection title="Branch details" subtitle="Valaya and district-wise branch counts">
+            <DashboardSection
+              title="Branch details"
+              subtitle="Valaya and district-wise branch counts"
+              backgroundColor="#f3f8ff"
+              borderColor="#cfe1f8"
+            >
               <ValayaBranchCounts />
             </DashboardSection>
           )}
           {(isSuperAdmin || isPanchangaAdmin) && (
-            <DashboardSection title="Panchanga status" subtitle="Approval progress and upcoming daily entries">
+            <DashboardSection
+              title="Panchanga status"
+              subtitle="Approval progress and upcoming daily entries"
+              backgroundColor="#f3faf5"
+              borderColor="#cee7d4"
+            >
               <PanchangaStats />
             </DashboardSection>
           )}
@@ -71,10 +101,20 @@ export const DashboardPage = () => {
 
         {isSuperAdmin && (
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, alignItems: "start" }}>
-            <DashboardSection title="Events" subtitle="Current event lifecycle summary">
+            <DashboardSection
+              title="Events"
+              subtitle="Current event lifecycle summary"
+              backgroundColor="#fff8ef"
+              borderColor="#f1dcc0"
+            >
               <EventStats />
             </DashboardSection>
-            <DashboardSection title="Notifications" subtitle="Publication status and recent messages">
+            <DashboardSection
+              title="Notifications"
+              subtitle="Publication status and recent messages"
+              backgroundColor="#faf5ff"
+              borderColor="#e2d2f3"
+            >
               <NotificationStats />
               <RecentNotifications />
             </DashboardSection>
