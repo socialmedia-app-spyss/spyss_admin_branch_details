@@ -32,6 +32,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import { NotificationList } from "./resources/notifications/list";
 import { NotificationCreate } from "./resources/notifications/create";
 import { NotificationEdit } from "./resources/notifications/edit";
@@ -42,6 +43,8 @@ import { EventEdit } from "./resources/events/edit";
 import { EventShow } from "./resources/events/show";
 import { PanchangaList } from "./resources/panchanga/list";
 import { PanchangaShow } from "./resources/panchanga/show";
+import { AmruthaVachanaList } from "./resources/amrutha-vachana/list";
+import { AmruthaVachanaShow } from "./resources/amrutha-vachana/show";
 
 function App() {
   return (
@@ -107,6 +110,12 @@ function App() {
                   show: "/panchanga/show/:id",
                   meta: { label: "Daily Panchanga", icon: <CalendarMonthIcon /> },
                 },
+                {
+                  name: "daily_amrutha_vachana",
+                  list: "/amrutha-vachana",
+                  show: "/amrutha-vachana/show/:id",
+                  meta: { label: "Amrutha Vachana", icon: <FormatQuoteIcon /> },
+                },
               ]}
             >
               <Routes>
@@ -145,6 +154,8 @@ function App() {
                   <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN", "PANCHANGA_ADMIN"]} />}>
                     <Route path="/panchanga" element={<PanchangaList />} />
                     <Route path="/panchanga/show/:id" element={<PanchangaShow />} />
+                    <Route path="/amrutha-vachana" element={<AmruthaVachanaList />} />
+                    <Route path="/amrutha-vachana/show/:id" element={<AmruthaVachanaShow />} />
                   </Route>
                 </Route>
 

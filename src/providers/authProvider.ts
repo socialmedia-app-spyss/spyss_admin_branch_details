@@ -42,7 +42,7 @@ const VALAYA_ADMIN_RESOURCES = [
 ];
 
 const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events"];
-const PANCHANGA_RESOURCES = ["daily_panchanga"];
+const PANCHANGA_RESOURCES = ["daily_panchanga", "daily_amrutha_vachana"];
 
 // Refine can call check(), getIdentity(), and can() at nearly the same time
 // while it resolves the current route. Share one lookup between those callers

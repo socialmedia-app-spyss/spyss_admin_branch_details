@@ -423,3 +423,21 @@ entrypoint = "./functions/send-notification/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-notification/*.html" ]
+
+[functions.generate-panchanga-kn]
+enabled = true
+# Kept disabled at the gateway so secret-authenticated cron requests continue
+# to work. The function validates either the cron secret or an admin JWT.
+verify_jwt = false
+import_map = "./functions/generate-panchanga-kn/deno.json"
+entrypoint = "./functions/generate-panchanga-kn/index.ts"
+static_files = [ "./functions/generate-panchanga-kn/assets/*.ttf" ]
+
+[functions.generate-amrutha-vachana-kn]
+enabled = true
+# Keep gateway verification disabled so the existing secret-authenticated cron
+# continues to work. The function also validates authorized admin sessions.
+verify_jwt = false
+import_map = "./functions/generate-amrutha-vachana-kn/deno.json"
+entrypoint = "./functions/generate-amrutha-vachana-kn/index.ts"
+static_files = [ "./functions/generate-amrutha-vachana-kn/assets/*.ttf" ]
