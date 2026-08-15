@@ -32,11 +32,14 @@ export const PanchangaStats = () => {
   const approvalPercent = visibleRecords.length
     ? Math.round((approvedCount / visibleRecords.length) * 100)
     : 0;
-  // The month filter controls the summary cards only. "Next Panchanga"
-  // should always show today's or the nearest future entry globally.
-  const nextEntry = [...records]
-    .filter((item) => item.panchanga_date >= today)
-    .sort((a, b) => a.panchanga_date.localeCompare(b.panchanga_date))[0];
+
+  const todayEntry = records.find((item) => item.panchanga_date === today);
+  
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = tomorrowDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+  const tomorrowEntry = records.find((item) => item.panchanga_date === tomorrow);
 
   if (query.isError) {
     return <Typography color="error">Unable to load Panchanga statistics.</Typography>;
@@ -67,18 +70,40 @@ export const PanchangaStats = () => {
         </Stack>
         <LinearProgress color="success" variant="determinate" value={approvalPercent} sx={{ height: 10, borderRadius: 10 }} />
       </Box>
-      {nextEntry && (
+      {todayEntry ? (
         <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: "action.hover" }}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}>
             <Box>
-              <Typography variant="caption" color="text.secondary">Next Panchanga</Typography>
-              <Typography fontWeight={700}>{nextEntry.display_date || nextEntry.panchanga_date}</Typography>
+              <Typography variant="caption" color="text.secondary">Today's Panchanga</Typography>
+              <Typography fontWeight={700}>{todayEntry.display_date || todayEntry.panchanga_date}</Typography>
             </Box>
             <Stack direction="row" gap={0.75} flexWrap="wrap" useFlexGap alignItems="center">
-              <Chip size="small" label={nextEntry.approve_status ? "Approved" : "Waiting approval"} color={nextEntry.approve_status ? "success" : "warning"} />
-              <Chip size="small" label={nextEntry.image_url ? "Image uploaded" : "Image pending"} color={nextEntry.image_url ? "success" : "default"} variant="outlined" />
+              <Chip size="small" label={todayEntry.approve_status ? "Approved" : "Waiting approval"} color={todayEntry.approve_status ? "success" : "warning"} />
+              <Chip size="small" label={todayEntry.image_url ? "Image uploaded" : "Image pending"} color={todayEntry.image_url ? "success" : "default"} variant="outlined" />
             </Stack>
           </Stack>
+        </Box>
+      ) : (
+        <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: "error.main" }}>
+          <Typography color="white">Today's Panchanga not available</Typography>
+        </Box>
+      )}
+      {tomorrowEntry ? (
+        <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: "action.hover" }}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Tomorrow's Panchanga</Typography>
+              <Typography fontWeight={700}>{tomorrowEntry.display_date || tomorrowEntry.panchanga_date}</Typography>
+            </Box>
+            <Stack direction="row" gap={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+              <Chip size="small" label={tomorrowEntry.approve_status ? "Approved" : "Waiting approval"} color={tomorrowEntry.approve_status ? "success" : "warning"} />
+              <Chip size="small" label={tomorrowEntry.image_url ? "Image uploaded" : "Image pending"} color={tomorrowEntry.image_url ? "success" : "default"} variant="outlined" />
+            </Stack>
+          </Stack>
+        </Box>
+      ) : (
+        <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: "error.main" }}>
+          <Typography color="white">Tomorrow's Panchanga not available</Typography>
         </Box>
       )}
       <Grid container spacing={2}>
