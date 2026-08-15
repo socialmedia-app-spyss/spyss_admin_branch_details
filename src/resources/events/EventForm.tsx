@@ -232,7 +232,9 @@ export const EventForm = ({ register, control, errors, getValues }: EventFormPro
             fullWidth
             InputLabelProps={shrinkLabel}
             error={!!errors.image_url_en}
-            helperText={errors.image_url_en?.message || "Optional"}
+            helperText={errors.image_url_en?.message || (
+              <>Optional. Recommended image dimensions: <strong>1280 × 720 WebP or 1600 × 900 WebP</strong>.</>
+            )}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -242,7 +244,9 @@ export const EventForm = ({ register, control, errors, getValues }: EventFormPro
             fullWidth
             InputLabelProps={shrinkLabel}
             error={!!errors.image_url_kn}
-            helperText={errors.image_url_kn?.message || "Optional"}
+            helperText={errors.image_url_kn?.message || (
+              <>Optional. Recommended image dimensions: <strong>1280 × 720 WebP or 1600 × 900 WebP</strong>.</>
+            )}
           />
         </Grid>
       </Grid>

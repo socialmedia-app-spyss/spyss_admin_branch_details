@@ -4,7 +4,7 @@ import { useForm } from "@refinedev/react-hook-form";
 import { useEffect } from "react";
 import type { Event, EventInput } from "../../types/event";
 import { EventForm } from "./EventForm";
-import { normalizeEvent } from "./create";
+import { normalizeEvent } from "./normalizeEvent";
 
 export const EventEdit = () => {
   const {
@@ -13,7 +13,7 @@ export const EventEdit = () => {
     control,
     getValues,
     handleSubmit,
-    setValue,
+    reset,
     formState: { errors },
     refineCore: { onFinish, query },
   } = useForm<Event, HttpError, EventInput>();
@@ -22,10 +22,23 @@ export const EventEdit = () => {
 
   useEffect(() => {
     if (!record) return;
-    setValue("start_datetime", record.start_datetime ?? null);
-    setValue("end_datetime", record.end_datetime ?? null);
-    setValue("is_active", record.is_active);
-  }, [record?.id, record?.start_datetime, record?.end_datetime, record?.is_active, setValue]);
+    reset({
+      event_name_en: record.event_name_en ?? "",
+      event_name_kn: record.event_name_kn ?? "",
+      short_description_en: record.short_description_en ?? "",
+      short_description_kn: record.short_description_kn ?? "",
+      full_description_en: record.full_description_en ?? "",
+      full_description_kn: record.full_description_kn ?? "",
+      start_datetime: record.start_datetime ?? null,
+      end_datetime: record.end_datetime ?? null,
+      location_en: record.location_en ?? "",
+      location_kn: record.location_kn ?? "",
+      registration_link: record.registration_link ?? "",
+      image_url_en: record.image_url_en ?? "",
+      image_url_kn: record.image_url_kn ?? "",
+      is_active: record.is_active,
+    });
+  }, [record, reset]);
 
   return (
     <Edit

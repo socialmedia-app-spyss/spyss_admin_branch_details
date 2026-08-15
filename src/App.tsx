@@ -33,6 +33,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
+import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import { NotificationList } from "./resources/notifications/list";
 import { NotificationCreate } from "./resources/notifications/create";
 import { NotificationEdit } from "./resources/notifications/edit";
@@ -45,6 +46,7 @@ import { PanchangaList } from "./resources/panchanga/list";
 import { PanchangaShow } from "./resources/panchanga/show";
 import { AmruthaVachanaList } from "./resources/amrutha-vachana/list";
 import { AmruthaVachanaShow } from "./resources/amrutha-vachana/show";
+import { ApiStatsPage } from "./pages/api-stats/ApiStatsPage";
 
 function App() {
   return (
@@ -116,6 +118,11 @@ function App() {
                   show: "/amrutha-vachana/show/:id",
                   meta: { label: "Amrutha Vachana", icon: <FormatQuoteIcon /> },
                 },
+                {
+                  name: "api-stats",
+                  list: "/api-stats",
+                  meta: { label: "API Statistics", icon: <QueryStatsIcon /> },
+                },
               ]}
             >
               <Routes>
@@ -142,6 +149,7 @@ function App() {
                   </Route>
 
                   <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN"]} />}>
+                    <Route path="/api-stats" element={<ApiStatsPage />} />
                     <Route path="/notifications" element={<NotificationList />} />
                     <Route path="/notifications/create" element={<NotificationCreate />} />
                     <Route path="/notifications/edit/:id" element={<NotificationEdit />} />

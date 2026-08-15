@@ -41,7 +41,7 @@ const VALAYA_ADMIN_RESOURCES = [
   "master_valayas",
 ];
 
-const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events"];
+const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events", "api-stats"];
 const PANCHANGA_RESOURCES = ["daily_panchanga", "daily_amrutha_vachana"];
 
 // Refine can call check(), getIdentity(), and can() at nearly the same time
@@ -294,7 +294,7 @@ export const authProvider = {
     if (error) return { success: false, error };
     return { success: true };
   },
-  can: async ({ resource, action: _action, params: _params }: { resource?: string; action: string; params?: unknown }) => {
+  can: async ({ resource, action: _action }: { resource?: string; action: string; params?: unknown }) => {
     const identity = await getCurrentUserProfile();
 
     if (!identity) {

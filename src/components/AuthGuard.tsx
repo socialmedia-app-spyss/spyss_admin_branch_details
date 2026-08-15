@@ -18,7 +18,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ allowedRoles }) => {
     return <Navigate to="/login" />;
   }
 
-  if (!allowedRoles.includes(identity.role)) {
+  if (identity.status !== "APPROVED" || !identity.is_active || !allowedRoles.includes(identity.role)) {
     return <Navigate to="/access-denied" />;
   }
 
