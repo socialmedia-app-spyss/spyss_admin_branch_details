@@ -323,7 +323,10 @@ export const PanchangaList = () => {
     if (newRow.isNew) {
       const response = await createPanchanga({
         resource: "daily_panchanga",
-        values,
+        values: {
+          ...values,
+          created_by: identity?.id,
+        },
       });
       setNewRows((rows) => rows.filter((row) => row.id !== newRow.id));
       return response.data as PanchangaGridRow;
@@ -332,7 +335,10 @@ export const PanchangaList = () => {
     const response = await updatePanchanga({
       resource: "daily_panchanga",
       id: newRow.id,
-      values,
+      values: {
+        ...values,
+        updated_by: identity?.id,
+      },
     });
     return response.data as PanchangaGridRow;
   };

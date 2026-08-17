@@ -11,10 +11,11 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useShow } from "@refinedev/core";
+import { useShow, useOne } from "@refinedev/core";
 import { Show } from "@refinedev/mui";
 import { supabaseClient } from "../../supabaseClient";
 import type { DailyPanchanga } from "../../types/panchanga";
+import type { UserProfile } from "../../types/user";
 
 const PANCHANGA_IMAGE_FUNCTION =
   import.meta.env.VITE_PANCHANGA_IMAGE_FUNCTION || "generate-panchanga-kn";
@@ -45,6 +46,18 @@ export const PanchangaShow = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const { data: createdBy } = useOne<UserProfile>({
+    resource: "users",
+    id: record?.created_by,
+    queryOptions: { enabled: Boolean(record?.created_by) },
+  });
+
+  const { data: updatedBy } = useOne<UserProfile>({
+    resource: "users",
+    id: record?.updated_by,
+    queryOptions: { enabled: Boolean(record?.updated_by) },
+  });
 
   const generatePoster = async () => {
     if (!record) return;
@@ -129,6 +142,22 @@ export const PanchangaShow = () => {
               ? "Regenerate poster"
               : "Generate poster"}
         </Button>
+
+        {(createdBy?.data || updatedBy?.data) && (
+          <Paper variant="outlined" sx={{ p: 2, width: "100%", maxWidth: 760 }}>
+            <Typography variant="h6" gutterBottom>Audit Trail</Typography>
+            {createdBy?.data && (
+              <Typography variant="body2">
+                Created by: {createdBy.data.name} ({createdBy.data.email}) on {new Date(record.created_at).toLocaleString()}
+              </Typography>
+            )}
+            {updatedBy?.data && (
+              <Typography variant="body2">
+                Last updated by: {updatedBy.data.name} ({updatedBy.data.email}) on {new Date(record.updated_at).toLocaleString()}
+              </Typography>
+            )}
+          </Paper>
+        )}
 
         {record.approve_status !== true && (
           <Alert severity="info" sx={{ width: "100%", maxWidth: 760 }}>
