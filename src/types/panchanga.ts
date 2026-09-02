@@ -22,6 +22,8 @@ export interface DailyPanchanga {
   special_note2?: string | null;
   special_note3?: string | null;
   approve_status?: boolean | null;
+  created_by?: string | null;
+  updated_by?: string | null;
   created_at: string;
   updated_at: string;
   image_url?: string | null;

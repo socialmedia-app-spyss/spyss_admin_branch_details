@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import {
@@ -11,11 +11,10 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useShow, useOne } from "@refinedev/core";
+import { useShow } from "@refinedev/core";
 import { Show } from "@refinedev/mui";
 import { supabaseClient } from "../../supabaseClient";
 import type { DailyPanchanga } from "../../types/panchanga";
-import type { UserProfile } from "../../types/user";
 
 const PANCHANGA_IMAGE_FUNCTION =
   import.meta.env.VITE_PANCHANGA_IMAGE_FUNCTION || "generate-panchanga-kn";
@@ -47,17 +46,45 @@ export const PanchangaShow = () => {
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
-  const { data: createdBy } = useOne<UserProfile>({
-    resource: "users",
-    id: record?.created_by,
-    queryOptions: { enabled: Boolean(record?.created_by) },
-  });
+  const [userProfilesById, setUserProfilesById] = useState<
+    Record<string, { fullName?: string | null; email?: string | null }>
+  >({});
 
-  const { data: updatedBy } = useOne<UserProfile>({
-    resource: "users",
-    id: record?.updated_by,
-    queryOptions: { enabled: Boolean(record?.updated_by) },
-  });
+  useEffect(() => {
+    const userIds = [record?.created_by, record?.updated_by].filter(
+      (id): id is string => Boolean(id),
+    );
+    if (userIds.length === 0) {
+      setUserProfilesById({});
+      return;
+    }
+
+    const fetchUserProfiles = async () => {
+      const uniqueUserIds = Array.from(new Set(userIds));
+      const { data: profiles, error } = await supabaseClient
+        .from("user_profiles")
+        .select("id, full_name, email")
+        .in("id", uniqueUserIds);
+
+      if (error) {
+        console.error("PanchangaShow: Error fetching creator/updater profile:", error);
+        return;
+      }
+
+      if (profiles) {
+        setUserProfilesById(
+          Object.fromEntries(
+            profiles.map((p) => [
+              p.id,
+              { fullName: p.full_name, email: p.email },
+            ]),
+          ),
+        );
+      }
+    };
+
+    void fetchUserProfiles();
+  }, [record?.created_by, record?.updated_by]);
 
   const generatePoster = async () => {
     if (!record) return;
@@ -143,21 +170,29 @@ export const PanchangaShow = () => {
               : "Generate poster"}
         </Button>
 
-        {(createdBy?.data || updatedBy?.data) && (
-          <Paper variant="outlined" sx={{ p: 2, width: "100%", maxWidth: 760 }}>
-            <Typography variant="h6" gutterBottom>Audit Trail</Typography>
-            {createdBy?.data && (
-              <Typography variant="body2">
-                Created by: {createdBy.data.name} ({createdBy.data.email}) on {new Date(record.created_at).toLocaleString()}
-              </Typography>
-            )}
-            {updatedBy?.data && (
-              <Typography variant="body2">
-                Last updated by: {updatedBy.data.name} ({updatedBy.data.email}) on {new Date(record.updated_at).toLocaleString()}
-              </Typography>
-            )}
-          </Paper>
-        )}
+        <Paper variant="outlined" sx={{ p: 2, width: "100%", maxWidth: 760 }}>
+          <Typography variant="h6" gutterBottom>Audit Trail</Typography>
+          <Typography variant="body2">
+            Created by: {(() => {
+              if (!record.created_by) return "Not recorded";
+              const user = userProfilesById[record.created_by];
+              if (!user) return "Loading...";
+              return user.fullName
+                ? `${user.fullName}${user.email ? ` (${user.email})` : ""}`
+                : user.email || record.created_by;
+            })()} on {record.created_at ? new Date(record.created_at).toLocaleString() : "N/A"}
+          </Typography>
+          <Typography variant="body2">
+            Last updated by: {(() => {
+              if (!record.updated_by) return "Not recorded";
+              const user = userProfilesById[record.updated_by];
+              if (!user) return "Loading...";
+              return user.fullName
+                ? `${user.fullName}${user.email ? ` (${user.email})` : ""}`
+                : user.email || record.updated_by;
+            })()} on {record.updated_at ? new Date(record.updated_at).toLocaleString() : "N/A"}
+          </Typography>
+        </Paper>
 
         {record.approve_status !== true && (
           <Alert severity="info" sx={{ width: "100%", maxWidth: 760 }}>

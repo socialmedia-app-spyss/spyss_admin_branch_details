@@ -105,6 +105,8 @@ const emptyPanchangaRow = (id: string): PanchangaGridRow => ({
   special_note2: "",
   special_note3: "",
   approve_status: false,
+  created_by: null,
+  updated_by: null,
   created_at: "",
   updated_at: "",
 });
@@ -183,11 +185,14 @@ const SpecialNoteEditCell = ({
 
 const OptionEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => {
   const field = params.field as OptionField;
+  const options = panchangaOptions[field] as readonly string[];
+  const currentValue = String(params.value ?? "");
+  const isCustomOrLegacy = Boolean(currentValue && !options.includes(currentValue));
 
   return (
     <TextField
       select
-      value={params.value ?? ""}
+      value={currentValue}
       onChange={(event) => {
         const value = event.target.value;
         void params.api.setEditCellValue({ id: params.id, field, value });
@@ -216,7 +221,10 @@ const OptionEditCell = (params: GridRenderEditCellParams<PanchangaGridRow>) => {
       size="small"
     >
       {field === "vasara" && <MenuItem value=""><em>None</em></MenuItem>}
-      {panchangaOptions[field].map((option) => (
+      {isCustomOrLegacy && (
+        <MenuItem key={currentValue} value={currentValue}>{currentValue}</MenuItem>
+      )}
+      {options.map((option) => (
         <MenuItem key={option} value={option}>{option}</MenuItem>
       ))}
     </TextField>
@@ -326,6 +334,7 @@ export const PanchangaList = () => {
         values: {
           ...values,
           created_by: identity?.id,
+          updated_by: identity?.id,
         },
       });
       setNewRows((rows) => rows.filter((row) => row.id !== newRow.id));
