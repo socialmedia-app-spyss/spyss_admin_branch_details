@@ -17,7 +17,9 @@ export const CarouselEdit = () => {
     watch,
     formState: { errors },
     refineCore: { onFinish, query },
-  } = useForm<AppCarousel, HttpError, any>();
+  } = useForm<AppCarousel, HttpError, any>({
+    mode: "onChange",
+  });
 
   const record = query?.data?.data;
 

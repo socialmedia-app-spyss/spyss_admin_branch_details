@@ -174,6 +174,14 @@ test("Other roles (PANCHANGA_ADMIN, USER, unapproved) are strictly unaffected", 
     { can: true }
   );
   assert.deepEqual(
+    checkUserAccess({ identity: panchangaAdmin, resource: "app_carousel", action: "list" }),
+    { can: false }
+  );
+  assert.deepEqual(
+    checkUserAccess({ identity: panchangaAdmin, resource: "app_carousel", action: "create" }),
+    { can: false }
+  );
+  assert.deepEqual(
     checkUserAccess({ identity: panchangaAdmin, resource: "app_branches", action: "create" }),
     { can: false }
   );

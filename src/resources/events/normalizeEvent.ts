@@ -1,4 +1,5 @@
 import type { AppEvent, AppEventInput, EventCategory, LocalizedField } from "../../types/event";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl.ts";
 
 const VALID_CATEGORIES: EventCategory[] = [
   "GENERAL",
@@ -48,10 +49,97 @@ const optionalText = (value?: string | null): string | null => {
   return trimmed && trimmed.length > 0 ? trimmed : null;
 };
 
+export const kannadaScriptPattern = /[\u0C80-\u0CFF]/;
+export const englishLettersPattern = /[A-Za-z]/;
+
+export const validateEnglishEventText = (
+  value?: string | null,
+  fieldLabel: string = "English content"
+): true | string => {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  if (kannadaScriptPattern.test(text)) {
+    return `${fieldLabel} cannot contain Kannada characters. Please enter English text only.`;
+  }
+  if (!englishLettersPattern.test(text)) {
+    return `${fieldLabel} must contain English letters.`;
+  }
+  return true;
+};
+
+export const validateKannadaEventText = (
+  value?: string | null,
+  fieldLabel: string = "Kannada content"
+): true | string => {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  if (englishLettersPattern.test(text)) {
+    return `${fieldLabel} cannot contain English letters (English numbers 0-9 are allowed).`;
+  }
+  if (!kannadaScriptPattern.test(text)) {
+    return `${fieldLabel} must contain Kannada characters.`;
+  }
+  return true;
+};
+
 export const normalizeEvent = (values: AppEventInput): Omit<AppEvent, "id" | "created_at" | "updated_at"> => {
   const title = buildLocalizedObject(values.title_en, values.title_kn);
   if (!title.en && !title.kn) {
     throw new Error("Event title in either English or Kannada is required.");
+  }
+
+  if (values.title_en?.trim()) {
+    const err = validateEnglishEventText(values.title_en, "English Title");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.short_description_en?.trim()) {
+    const err = validateEnglishEventText(values.short_description_en, "English Short Description");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.full_description_en?.trim()) {
+    const err = validateEnglishEventText(values.full_description_en, "English Full Description");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.location_name_en?.trim()) {
+    const err = validateEnglishEventText(values.location_name_en, "English Location Name");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.contact_person_en?.trim()) {
+    const err = validateEnglishEventText(values.contact_person_en, "English Contact Person");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.address_en?.trim()) {
+    const err = validateEnglishEventText(values.address_en, "English Address");
+    if (err !== true) throw new Error(err);
+  }
+
+  if (values.title_kn?.trim()) {
+    const err = validateKannadaEventText(values.title_kn, "Kannada Title");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.short_description_kn?.trim()) {
+    const err = validateKannadaEventText(values.short_description_kn, "Kannada Short Description");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.full_description_kn?.trim()) {
+    const err = validateKannadaEventText(values.full_description_kn, "Kannada Full Description");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.location_name_kn?.trim()) {
+    const err = validateKannadaEventText(values.location_name_kn, "Kannada Location Name");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.contact_person_kn?.trim()) {
+    const err = validateKannadaEventText(values.contact_person_kn, "Kannada Contact Person");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.address_kn?.trim()) {
+    const err = validateKannadaEventText(values.address_kn, "Kannada Address");
+    if (err !== true) throw new Error(err);
   }
 
   const category: EventCategory = VALID_CATEGORIES.includes(values.category)
@@ -74,6 +162,18 @@ export const normalizeEvent = (values: AppEventInput): Omit<AppEvent, "id" | "cr
     version = 1;
   }
 
+  const enImageUrl = sanitizeImageUrl(values.image_url_en);
+  if (enImageUrl) {
+    const err = validateImageUrl(enImageUrl, { required: false, fieldLabel: "English image URL" });
+    if (err !== true) throw new Error(err);
+  }
+
+  const knImageUrl = sanitizeImageUrl(values.image_url_kn);
+  if (knImageUrl) {
+    const err = validateImageUrl(knImageUrl, { required: false, fieldLabel: "Kannada image URL" });
+    if (err !== true) throw new Error(err);
+  }
+
   return {
     event_code: eventCode,
     version,
@@ -87,7 +187,7 @@ export const normalizeEvent = (values: AppEventInput): Omit<AppEvent, "id" | "cr
     registration_link: optionalText(values.registration_link),
     contact_person: buildLocalizedObject(values.contact_person_en, values.contact_person_kn),
     contact_phone: optionalText(values.contact_phone),
-    image_url: buildLocalizedObject(values.image_url_en, values.image_url_kn),
+    image_url: buildLocalizedObject(enImageUrl, knImageUrl),
     start_datetime: startIso,
     end_datetime: endIso,
     event_timezone: (values.event_timezone || "").trim() || "Asia/Kolkata",

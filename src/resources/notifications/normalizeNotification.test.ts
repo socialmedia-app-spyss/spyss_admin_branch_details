@@ -213,3 +213,44 @@ test("normalizeNotification accepts Kannada content containing English numbers",
   assert.equal(result.title.en, "Yoga Day 2026 - Hall 2");
   assert.equal(result.title.kn, "ಯೋಗ ದಿನಾಚರಣೆ 2026 - ಸಭಾಂಗಣ 2");
 });
+
+test("normalizeNotification auto-converts placehold.co URL and rejects SVG images", () => {
+  const baseInput: AppNotificationInput = {
+    notification_code: "NOTIF-IMG-TEST",
+    version: 1,
+    priority: "NORMAL",
+    type: "GENERAL",
+    target_type: "ALL",
+    title_en: "Yoga Day 2026",
+    body_en: "Celebration details",
+    title_kn: "",
+    body_kn: "",
+    date_time: "2026-10-01T06:00:00Z",
+    send_status: "PENDING",
+    is_active: true,
+  };
+
+  const rawUrl =
+    "https://placehold.co/1200x630/FFF0F5/E91E63?text=Happy+Birthday%21%0AWishing+You+a+Wonderful+Day%21\\&font=roboto";
+
+  const result = normalizeNotification({
+    ...baseInput,
+    image_url: rawUrl,
+  });
+
+  assert.ok(result.image_url);
+  assert.match(result.image_url, /\/E91E63\.png\?/);
+  assert.ok(!result.image_url.includes("\\&"));
+  assert.ok(result.image_url.includes("&font=roboto"));
+
+  // Rejects SVG
+  assert.throws(
+    () =>
+      normalizeNotification({
+        ...baseInput,
+        image_url: "https://example.com/vector-notif.svg",
+      }),
+    /SVG images are not supported by the mobile app/
+  );
+});
+

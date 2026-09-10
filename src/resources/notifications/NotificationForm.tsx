@@ -62,6 +62,7 @@ import {
   validateEnglishNotificationText,
   validateKannadaNotificationText,
 } from "./normalizeNotification";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl";
 
 type NotificationFormProps = {
   register: UseFormRegister<AppNotificationInput>;
@@ -561,14 +562,23 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
             <Box sx={{ mt: 3 }}>
               <Divider sx={{ mb: 2 }} />
               <TextField
-                {...register("image_url", { validate: isValidOptionalUrl })}
+                {...register("image_url", {
+                  validate: (val) =>
+                    validateImageUrl(val, { required: false, requireHttps: false, fieldLabel: "Notification image URL" }),
+                  onBlur: (e) => {
+                    const cleaned = sanitizeImageUrl(e.target.value);
+                    if (cleaned && cleaned !== e.target.value) {
+                      setValue("image_url", cleaned, { shouldValidate: true });
+                    }
+                  },
+                })}
                 label="Notification Banner Image URL (Optional)"
                 fullWidth
                 InputLabelProps={shrinkLabel}
                 error={Boolean(errors.image_url)}
                 helperText={
                   errors.image_url?.message ||
-                  "Optional large image displayed in push notification expand view (e.g. 1024 × 512 WebP / JPG)"
+                  "Optional large image displayed in push notification expand view (e.g. 1024 × 512 WebP / JPG / PNG, SVG unsupported)"
                 }
                 placeholder="https://..."
               />
@@ -576,7 +586,7 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
                 <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}>
                   <Avatar
                     variant="rounded"
-                    src={imageUrl}
+                    src={sanitizeImageUrl(imageUrl) || imageUrl}
                     sx={{ width: 120, height: 60, borderRadius: 1.5 }}
                   >
                     <CollectionsOutlined />

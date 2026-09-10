@@ -4,6 +4,8 @@ import {
   normalizeEvent,
   generateEventCode,
   buildLocalizedObject,
+  validateEnglishEventText,
+  validateKannadaEventText,
 } from "./normalizeEvent.ts";
 import type { AppEventInput } from "../../types/event";
 
@@ -122,3 +124,179 @@ test("normalizeEvent throws if end datetime is before start datetime", () => {
     message: "Event end date & time cannot be before start date & time.",
   });
 });
+
+test("validateEnglishEventText allows English letters, numbers and punctuation, but rejects Kannada", () => {
+  assert.equal(validateEnglishEventText("State Level Yoga Shibira 2026", "Title"), true);
+  assert.equal(validateEnglishEventText("#12, 5th Main, Malleshwaram", "Address"), true);
+  assert.equal(
+    validateEnglishEventText("ಯೋಗ ಶಿಬಿರ", "Title"),
+    "Title cannot contain Kannada characters. Please enter English text only."
+  );
+  assert.equal(
+    validateEnglishEventText("Yoga ಶಿಬಿರ", "Title"),
+    "Title cannot contain Kannada characters. Please enter English text only."
+  );
+  assert.equal(
+    validateEnglishEventText("2026-10-01", "Title"),
+    "Title must contain English letters."
+  );
+});
+
+test("validateKannadaEventText allows Kannada script and English numbers, but rejects English letters", () => {
+  assert.equal(validateKannadaEventText("ರಾಜ್ಯ ಮಟ್ಟದ ಯೋಗ ಶಿಬಿರ 2026", "Title"), true);
+  assert.equal(validateKannadaEventText("ವಿಶೇಷ ತರಬೇತಿ #12", "Title"), true);
+  assert.equal(
+    validateKannadaEventText("Yoga ಶಿಬಿರ", "Title"),
+    "Title cannot contain English letters (English numbers 0-9 are allowed)."
+  );
+  assert.equal(
+    validateKannadaEventText("fghjjj", "Title"),
+    "Title cannot contain English letters (English numbers 0-9 are allowed)."
+  );
+  assert.equal(
+    validateKannadaEventText("2026", "Title"),
+    "Title must contain Kannada characters."
+  );
+});
+
+test("normalizeEvent throws when Kannada field contains English letters", () => {
+  const input: AppEventInput = {
+    event_code: "EVT-TEST",
+    version: 1,
+    category: "GENERAL",
+    title_en: "State Yoga Camp",
+    title_kn: "Yoga ಶಿಬಿರ fghjjj",
+    short_description_en: "",
+    short_description_kn: "",
+    full_description_en: "",
+    full_description_kn: "",
+    location_name_en: "",
+    location_name_kn: "",
+    address_en: "",
+    address_kn: "",
+    contact_person_en: "",
+    contact_person_kn: "",
+    start_datetime: "2026-10-01T06:00:00Z",
+    end_datetime: "2026-10-01T08:00:00Z",
+    event_timezone: "Asia/Kolkata",
+    visible_from: "2026-09-01T00:00:00Z",
+    send_announcement_push: true,
+    is_active: true,
+  };
+
+  assert.throws(() => normalizeEvent(input), {
+    message: "Kannada Title cannot contain English letters (English numbers 0-9 are allowed).",
+  });
+});
+
+test("normalizeEvent throws when English field contains Kannada characters", () => {
+  const input: AppEventInput = {
+    event_code: "EVT-TEST",
+    version: 1,
+    category: "GENERAL",
+    title_en: "State Yoga ಶಿಬಿರ",
+    title_kn: "",
+    short_description_en: "",
+    short_description_kn: "",
+    full_description_en: "",
+    full_description_kn: "",
+    location_name_en: "",
+    location_name_kn: "",
+    address_en: "",
+    address_kn: "",
+    contact_person_en: "",
+    contact_person_kn: "",
+    start_datetime: "2026-10-01T06:00:00Z",
+    end_datetime: "2026-10-01T08:00:00Z",
+    event_timezone: "Asia/Kolkata",
+    visible_from: "2026-09-01T00:00:00Z",
+    send_announcement_push: true,
+    is_active: true,
+  };
+
+  assert.throws(() => normalizeEvent(input), {
+    message: "English Title cannot contain Kannada characters. Please enter English text only.",
+  });
+});
+
+test("normalizeEvent accepts Kannada content containing English numbers", () => {
+  const input: AppEventInput = {
+    event_code: "EVT-TEST",
+    version: 1,
+    category: "GENERAL",
+    title_en: "",
+    title_kn: "ರಾಜ್ಯ ಮಟ್ಟದ ಯೋಗ ಶಿಬಿರ 2026",
+    short_description_en: "",
+    short_description_kn: "ಬೆಳಿಗ್ಗೆ 6:00 ಗಂಟೆಗೆ",
+    full_description_en: "",
+    full_description_kn: "2026 ರ ಸಮಗ್ರ ಯೋಗ ತರಬೇತಿ",
+    location_name_en: "",
+    location_name_kn: "ಎಸ್.ಪಿ.ವೈ.ಎಸ್.ಎಸ್ ಸಭಾಂಗಣ 560003",
+    address_en: "",
+    address_kn: "#12, 5ನೇ ಮುಖ್ಯ ರಸ್ತೆ",
+    contact_person_en: "",
+    contact_person_kn: "ಶ್ರೀ ರಮೇಶ್ ಕುಮಾರ್",
+    start_datetime: "2026-10-01T06:00:00Z",
+    end_datetime: "2026-10-01T08:00:00Z",
+    event_timezone: "Asia/Kolkata",
+    visible_from: "2026-09-01T00:00:00Z",
+    send_announcement_push: true,
+    is_active: true,
+  };
+
+  const normalized = normalizeEvent(input);
+  assert.equal(normalized.title.kn, "ರಾಜ್ಯ ಮಟ್ಟದ ಯೋಗ ಶಿಬಿರ 2026");
+  assert.equal(normalized.short_description.kn, "ಬೆಳಿಗ್ಗೆ 6:00 ಗಂಟೆಗೆ");
+});
+
+test("normalizeEvent auto-sanitizes placehold.co URL and rejects SVG images", () => {
+  const baseInput: AppEventInput = {
+    event_code: "EVT-IMG-TEST",
+    version: 1,
+    category: "GENERAL",
+    title_en: "State Yoga Shibira",
+    title_kn: "",
+    short_description_en: "Annual event",
+    short_description_kn: "",
+    full_description_en: "",
+    full_description_kn: "",
+    location_name_en: "",
+    location_name_kn: "",
+    address_en: "",
+    address_kn: "",
+    contact_person_en: "",
+    contact_person_kn: "",
+    start_datetime: "2026-10-01T06:00:00Z",
+    end_datetime: "2026-10-01T08:00:00Z",
+    event_timezone: "Asia/Kolkata",
+    visible_from: "2026-09-01T00:00:00Z",
+    send_announcement_push: true,
+    is_active: true,
+  };
+
+  // placehold.co URL without extension and with markdown escaped ampersand
+  const rawUrl =
+    "https://placehold.co/1200x630/FFF0F5/E91E63?text=Happy+Birthday%21%0AWishing+You+a+Wonderful+Day%21\\&font=roboto";
+
+  const result = normalizeEvent({
+    ...baseInput,
+    image_url_en: rawUrl,
+  });
+
+  assert.ok(result.image_url?.en);
+  assert.match(result.image_url.en, /\/E91E63\.png\?/);
+  assert.ok(!result.image_url.en.includes("\\&"));
+  assert.ok(result.image_url.en.includes("&font=roboto"));
+
+  // Reject SVG image
+  assert.throws(
+    () =>
+      normalizeEvent({
+        ...baseInput,
+        image_url_en: "https://example.com/vector.svg",
+      }),
+    /SVG images are not supported by the mobile app/
+  );
+});
+
+

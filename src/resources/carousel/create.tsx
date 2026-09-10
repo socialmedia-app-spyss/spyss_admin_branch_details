@@ -17,6 +17,7 @@ export const CarouselCreate = () => {
     formState: { errors },
     refineCore: { onFinish },
   } = useForm<BaseRecord, HttpError, any>({
+    mode: "onChange",
     defaultValues: {
       carousel_code: "",
       action_type: "NONE",

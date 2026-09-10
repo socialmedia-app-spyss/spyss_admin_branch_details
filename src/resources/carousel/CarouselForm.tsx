@@ -1,5 +1,5 @@
-import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -18,8 +18,6 @@ import {
   Paper,
   Select,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -30,6 +28,7 @@ import {
   CollectionsOutlined,
   DeviceHubOutlined,
   EventOutlined,
+  Language,
   LinkOutlined,
   OpenInNew,
   PhoneAndroidOutlined,
@@ -37,6 +36,11 @@ import {
   TranslateOutlined,
   YouTube,
 } from "@mui/icons-material";
+import {
+  validateEnglishCarouselText,
+  validateKannadaCarouselText,
+} from "./normalizeCarousel";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl";
 import { Controller } from "react-hook-form";
 import type {
   Control,
@@ -144,8 +148,6 @@ export const CarouselForm = ({
   setValue,
   watch,
 }: Props) => {
-  const [activeTab, setActiveTab] = useState<"en" | "kn">("en");
-
   // Live watch values for live banner preview
   const watchedActionType = watch("action_type") || "NONE";
   const watchedActionValue = watch("action_value") || "";
@@ -157,18 +159,6 @@ export const CarouselForm = ({
   const watchedKnSubtitle = watch("subtitle_kn") || "";
   const watchedIsActive = watch("is_active") ?? true;
   const watchedCarouselCode = watch("carousel_code") || "";
-
-  const previewImage = activeTab === "kn"
-    ? (watchedKnImage || watchedEnImage)
-    : (watchedEnImage || watchedKnImage);
-
-  const previewTitle = activeTab === "kn"
-    ? (watchedKnTitle || watchedEnTitle || "ಬ್ಯಾನರ್ ಶೀರ್ಷಿಕೆ")
-    : (watchedEnTitle || watchedKnTitle || "Carousel Banner Title");
-
-  const previewSubtitle = activeTab === "kn"
-    ? (watchedKnSubtitle || watchedEnSubtitle)
-    : (watchedEnSubtitle || watchedKnSubtitle);
 
   const currentActionMeta = ACTION_TYPES.find((a) => a.type === watchedActionType) || ACTION_TYPES[0];
 
@@ -359,8 +349,12 @@ export const CarouselForm = ({
           </Typography>
         </Stack>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Leave dates empty for banners that run indefinitely, or configure a start and end schedule.
+          Leave dates empty for banners that run indefinitely, or configure a start and end schedule (All times must be entered in Indian Standard Time - IST).
         </Typography>
+
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+          <strong>Note:</strong> Please enter all schedule dates and times in <strong>Indian Standard Time (IST)</strong>.
+        </Alert>
 
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
@@ -372,11 +366,11 @@ export const CarouselForm = ({
                   {...field}
                   value={toDateTimeLocal(field.value)}
                   onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-                  label="Display Start Time"
+                  label="Display Start Time (IST)"
                   type="datetime-local"
                   fullWidth
                   InputLabelProps={shrinkLabel}
-                  helperText="Optional. Banner becomes visible from this date/time."
+                  helperText="Time in IST. Optional. Banner becomes visible from this date/time."
                 />
               )}
             />
@@ -399,12 +393,12 @@ export const CarouselForm = ({
                   {...field}
                   value={toDateTimeLocal(field.value)}
                   onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-                  label="Display End Time"
+                  label="Display End Time (IST)"
                   type="datetime-local"
                   fullWidth
                   InputLabelProps={shrinkLabel}
                   error={!!errors.end_at}
-                  helperText={errors.end_at?.message || "Optional. Banner automatically hides after this date/time."}
+                  helperText={errors.end_at?.message || "Time in IST. Optional. Banner automatically hides after this date/time."}
                 />
               )}
             />
@@ -430,49 +424,77 @@ export const CarouselForm = ({
         </Stack>
       </Paper>
 
-      {/* 4. Multilingual Image & Content + Live Preview */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} lg={7}>
-          <Paper variant="outlined" sx={sectionSx}>
-            <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
-              <TranslateOutlined color="primary" />
+      {/* 4. Multilingual Content & Images (English & Kannada Side-by-Side) */}
+      <Paper variant="outlined" sx={sectionSx}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={2}
+          flexWrap="wrap"
+          gap={1}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <TranslateOutlined color="primary" />
+            <Box>
               <Typography variant="h6" fontWeight={700}>
                 Multilingual Content & Images
               </Typography>
-            </Stack>
+              <Typography variant="body2" color="text.secondary">
+                Configure banner image and optional overlay text in English and Kannada
+              </Typography>
+            </Box>
+          </Stack>
+          <Chip
+            label="English & Kannada (Bilingual)"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 700 }}
+          />
+        </Stack>
 
-            <Tabs
-              value={activeTab}
-              onChange={(_, val) => setActiveTab(val)}
-              sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}
+        <Divider sx={{ mb: 2.5 }} />
+
+        <Grid container spacing={3}>
+          {/* English Column */}
+          <Grid item xs={12} md={6}>
+            <Box
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: 1,
+                borderColor: "divider",
+                height: "100%",
+              }}
             >
-              <Tab
-                label={
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <span>English (en)</span>
-                    {watchedEnImage && <Chip size="small" label="Image Set" color="success" variant="outlined" />}
-                  </Stack>
-                }
-                value="en"
-              />
-              <Tab
-                label={
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <span>ಕನ್ನಡ (kn)</span>
-                    {watchedKnImage && <Chip size="small" label="Image Set" color="success" variant="outlined" />}
-                  </Stack>
-                }
-                value="kn"
-              />
-            </Tabs>
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                mb={2}
+                color="primary.main"
+              >
+                <Language fontSize="small" />
+                <Typography variant="subtitle2" fontWeight={700} color="primary.main">
+                  English Banner Details
+                </Typography>
+                {watchedEnImage && (
+                  <Chip size="small" label="Image Set" color="success" variant="outlined" sx={{ ml: "auto" }} />
+                )}
+              </Stack>
 
-            {/* English Form */}
-            {activeTab === "en" && (
-              <Stack spacing={2}>
+              <Stack spacing={2.5}>
                 <TextField
                   {...register("image_url_en", {
                     required: "English image URL is required (database constraint).",
-                    validate: validateHttpsUrl,
+                    validate: (val) =>
+                      validateImageUrl(val, { required: true, requireHttps: true, fieldLabel: "English banner image URL" }),
+                    onBlur: (e) => {
+                      const cleaned = sanitizeImageUrl(e.target.value);
+                      if (cleaned && cleaned !== e.target.value) {
+                        setValue("image_url_en", cleaned, { shouldValidate: true });
+                      }
+                    },
                   })}
                   label="English Banner Image URL (HTTPS) *"
                   placeholder="https://example.com/banner-en.webp"
@@ -481,7 +503,7 @@ export const CarouselForm = ({
                   error={!!errors.image_url_en}
                   helperText={
                     errors.image_url_en?.message ||
-                    "Must start with https://. Recommended size: 1600 × 900 or 1280 × 720 (16:9 / 2:1 WebP)."
+                    "Must start with https://. Recommended: 1600 × 900 or 1280 × 720 (16:9 / 2:1 WebP / JPG / PNG)."
                   }
                   InputProps={{
                     startAdornment: (
@@ -493,42 +515,102 @@ export const CarouselForm = ({
                 />
 
                 <TextField
-                  {...register("title_en")}
+                  {...register("title_en", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateEnglishCarouselText(val, "English Title");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="Banner Title (English)"
                   placeholder="e.g., Annual Yoga Mahotsava 2026"
                   fullWidth
                   InputLabelProps={shrinkLabel}
-                  helperText="Optional overlay title or heading"
+                  error={!!errors.title_en}
+                  helperText={errors.title_en?.message || "Optional overlay title or heading"}
                 />
 
                 <TextField
-                  {...register("subtitle_en")}
+                  {...register("subtitle_en", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateEnglishCarouselText(val, "English Subtitle");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="Banner Subtitle / Tagline (English)"
                   placeholder="e.g., Join 100,000+ practitioners across Karnataka"
                   fullWidth
                   InputLabelProps={shrinkLabel}
-                  helperText="Optional subtitle"
+                  error={!!errors.subtitle_en}
+                  helperText={errors.subtitle_en?.message || "Optional subtitle"}
                 />
 
                 <TextField
-                  {...register("description_en")}
+                  {...register("description_en", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateEnglishCarouselText(val, "English Description");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="Description / Caption (English)"
                   placeholder="Additional context or call to action..."
                   fullWidth
                   multiline
                   minRows={2}
                   InputLabelProps={shrinkLabel}
-                  helperText="Optional descriptive text"
+                  error={!!errors.description_en}
+                  helperText={errors.description_en?.message || "Optional descriptive text"}
                 />
               </Stack>
-            )}
+            </Box>
+          </Grid>
 
-            {/* Kannada Form */}
-            {activeTab === "kn" && (
-              <Stack spacing={2}>
+          {/* Kannada Column */}
+          <Grid item xs={12} md={6}>
+            <Box
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: 1,
+                borderColor: "divider",
+                height: "100%",
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                mb={2}
+                color="secondary.main"
+              >
+                <TranslateOutlined fontSize="small" />
+                <Typography variant="subtitle2" fontWeight={700} color="secondary.main">
+                  ಕನ್ನಡ ಬ್ಯಾನರ್ ವಿವರಗಳು (Kannada Details)
+                </Typography>
+                {watchedKnImage && (
+                  <Chip size="small" label="Image Set" color="success" variant="outlined" sx={{ ml: "auto" }} />
+                )}
+              </Stack>
+
+              <Stack spacing={2.5}>
                 <TextField
                   {...register("image_url_kn", {
-                    validate: validateHttpsUrl,
+                    validate: (val) =>
+                      validateImageUrl(val, { required: false, requireHttps: true, fieldLabel: "Kannada banner image URL" }),
+                    onBlur: (e) => {
+                      const cleaned = sanitizeImageUrl(e.target.value);
+                      if (cleaned && cleaned !== e.target.value) {
+                        setValue("image_url_kn", cleaned, { shouldValidate: true });
+                      }
+                    },
                   })}
                   label="ಕನ್ನಡ ಬ್ಯಾನರ್ ಚಿತ್ರ ಲಿಂಕ್ (HTTPS)"
                   placeholder="https://example.com/banner-kn.webp"
@@ -549,168 +631,318 @@ export const CarouselForm = ({
                 />
 
                 <TextField
-                  {...register("title_kn")}
+                  {...register("title_kn", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateKannadaCarouselText(val, "ಬ್ಯಾನರ್ ಶೀರ್ಷಿಕೆ");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="ಬ್ಯಾನರ್ ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ)"
-                  placeholder="ಉದಾ: ವಾರ್ಷಿಕ ಯೋಗ ಮಹೋತ್ಸವ ೨೦೨೬"
+                  placeholder="ಉದಾ: ವಾರ್ಷಿಕ ಯೋಗ ಮಹೋತ್ಸವ 2026"
                   fullWidth
                   InputLabelProps={shrinkLabel}
-                  helperText="ಐಚ್ಛಿಕ ಶೀರ್ಷಿಕೆ"
+                  error={!!errors.title_kn}
+                  helperText={errors.title_kn?.message || "ಐಚ್ಛಿಕ ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ ಮತ್ತು ಅಂಕಿಗಳು)"}
                 />
 
                 <TextField
-                  {...register("subtitle_kn")}
+                  {...register("subtitle_kn", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateKannadaCarouselText(val, "ಉಪಶೀರ್ಷಿಕೆ");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="ಉಪಶೀರ್ಷಿಕೆ (ಕನ್ನಡ)"
                   placeholder="ಉದಾ: ರಾಜ್ಯಾದ್ಯಂತ ನಡೆಯುವ ಬೃಹತ್ ಯೋಗ ಶಿಬಿರ"
                   fullWidth
                   InputLabelProps={shrinkLabel}
-                  helperText="ಐಚ್ಛಿಕ ಉಪಶೀರ್ಷಿಕೆ"
+                  error={!!errors.subtitle_kn}
+                  helperText={errors.subtitle_kn?.message || "ಐಚ್ಛಿಕ ಉಪಶೀರ್ಷಿಕೆ"}
                 />
 
                 <TextField
-                  {...register("description_kn")}
+                  {...register("description_kn", {
+                    validate: (val) => {
+                      if (val?.trim()) {
+                        const langErr = validateKannadaCarouselText(val, "ವಿವರಣೆ");
+                        if (langErr !== true) return langErr;
+                      }
+                      return true;
+                    },
+                  })}
                   label="ವಿವರಣೆ (ಕನ್ನಡ)"
                   placeholder="ಹೆಚ್ಚುವರಿ ಮಾಹಿತಿ..."
                   fullWidth
                   multiline
                   minRows={2}
                   InputLabelProps={shrinkLabel}
-                  helperText="ಐಚ್ಛಿಕ ವಿವರಣೆ"
+                  error={!!errors.description_kn}
+                  helperText={errors.description_kn?.message || "ಐಚ್ಛಿಕ ವಿವರಣೆ"}
                 />
               </Stack>
-            )}
-          </Paper>
+            </Box>
+          </Grid>
         </Grid>
+      </Paper>
 
-        {/* Live Banner Preview Box */}
-        <Grid item xs={12} lg={5}>
-          <Paper
-            variant="outlined"
-            sx={{
-              ...sectionSx,
-              bgcolor: (theme) => theme.palette.mode === "dark" ? "background.default" : "#fbfcfe",
-              height: "100%",
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <PreviewOutlined color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Live Banner Preview
+      {/* 5. Live Banner Preview (English & Kannada Side-by-Side) */}
+      <Paper
+        variant="outlined"
+        sx={{
+          ...sectionSx,
+          bgcolor: (theme) => theme.palette.mode === "dark" ? "background.default" : "#fbfcfe",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center" mb={1}>
+          <PreviewOutlined color="primary" />
+          <Typography variant="h6" fontWeight={700}>
+            Live Banner Preview
+          </Typography>
+        </Stack>
+        <Typography variant="body2" color="text.secondary" mb={2.5}>
+          Real-time visualization of how the carousel slides render in the app for English and Kannada users.
+        </Typography>
+
+        <Grid container spacing={3}>
+          {/* English Preview */}
+          <Grid item xs={12} md={6}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" fontWeight={700} color="primary.main">
+                  English Slide Preview
                 </Typography>
-              </Stack>
-              <Chip
-                size="small"
-                icon={<PhoneAndroidOutlined fontSize="small" />}
-                label={activeTab === "kn" ? "Kannada Preview" : "English Preview"}
-                color="primary"
-                variant="outlined"
-              />
-            </Stack>
-
-            <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-              Real-time visualization of how the carousel slide renders in the app.
-            </Typography>
-
-            <Card
-              sx={{
-                borderRadius: 3,
-                overflow: "hidden",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-                position: "relative",
-                border: 1,
-                borderColor: "divider",
-              }}
-            >
-              {/* Badges on preview card */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 10,
-                  left: 10,
-                  zIndex: 2,
-                  display: "flex",
-                  gap: 0.75,
-                }}
-              >
                 <Chip
                   size="small"
-                  label={watchedIsActive ? "Active" : "Inactive"}
-                  color={watchedIsActive ? "success" : "default"}
-                  sx={{ fontWeight: 600, backdropFilter: "blur(4px)", bgcolor: watchedIsActive ? "success.main" : "rgba(0,0,0,0.6)", color: "#fff" }}
+                  icon={<PhoneAndroidOutlined fontSize="small" />}
+                  label="English (en)"
+                  color="primary"
+                  variant="outlined"
                 />
-                {watchedActionType !== "NONE" && (
-                  <Chip
-                    size="small"
-                    label={watchedActionType}
-                    color="primary"
-                    sx={{ fontWeight: 600, backdropFilter: "blur(4px)" }}
-                  />
-                )}
-              </Box>
+              </Stack>
 
-              {previewImage ? (
-                <CardMedia
-                  component="img"
-                  height="220"
-                  image={previewImage}
-                  alt={previewTitle}
-                  sx={{
-                    bgcolor: "action.hover",
-                    objectFit: "cover",
-                  }}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-              ) : (
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+                  position: "relative",
+                  border: 1,
+                  borderColor: "divider",
+                }}
+              >
+                {/* Badges on preview card */}
                 <Box
                   sx={{
-                    height: 200,
-                    bgcolor: "action.hover",
-                    display: "grid",
-                    placeItems: "center",
-                    p: 2,
-                    textAlign: "center",
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    zIndex: 2,
+                    display: "flex",
+                    gap: 0.75,
                   }}
                 >
-                  <Stack alignItems="center" spacing={1}>
-                    <CollectionsOutlined sx={{ fontSize: 48, color: "text.disabled" }} />
-                    <Typography variant="caption" color="text.secondary">
-                      Enter a valid HTTPS image URL on the left to see the banner preview
-                    </Typography>
-                  </Stack>
+                  <Chip
+                    size="small"
+                    label={watchedIsActive ? "Active" : "Inactive"}
+                    color={watchedIsActive ? "success" : "default"}
+                    sx={{ fontWeight: 600, backdropFilter: "blur(4px)", bgcolor: watchedIsActive ? "success.main" : "rgba(0,0,0,0.6)", color: "#fff" }}
+                  />
+                  {watchedActionType !== "NONE" && (
+                    <Chip
+                      size="small"
+                      label={watchedActionType}
+                      color="primary"
+                      sx={{ fontWeight: 600, backdropFilter: "blur(4px)" }}
+                    />
+                  )}
                 </Box>
-              )}
 
-              <CardContent sx={{ p: 2, bgcolor: "background.paper" }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={650}>
-                  {watchedCarouselCode || "CAROUSEL_CODE"}
-                </Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ overflowWrap: "anywhere", mt: 0.5 }}>
-                  {previewTitle}
-                </Typography>
-                {previewSubtitle && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {previewSubtitle}
-                  </Typography>
-                )}
-                {watchedActionType !== "NONE" && (
-                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Tapping banner triggers: <strong>{watchedActionType}</strong>
-                    </Typography>
-                    {watchedActionValue && (
-                      <Typography variant="caption" sx={{ color: "primary.main", overflowWrap: "anywhere" }}>
-                        {watchedActionValue}
+                {watchedEnImage ? (
+                  <CardMedia
+                    component="img"
+                    height="220"
+                    image={sanitizeImageUrl(watchedEnImage) || watchedEnImage}
+                    alt={watchedEnTitle || "English Banner"}
+                    sx={{
+                      bgcolor: "action.hover",
+                      objectFit: "cover",
+                    }}
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      height: 200,
+                      bgcolor: "action.hover",
+                      display: "grid",
+                      placeItems: "center",
+                      p: 2,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Stack alignItems="center" spacing={1}>
+                      <CollectionsOutlined sx={{ fontSize: 48, color: "text.disabled" }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Enter English HTTPS image URL above to see preview
                       </Typography>
-                    )}
+                    </Stack>
                   </Box>
                 )}
-              </CardContent>
-            </Card>
-          </Paper>
+
+                <CardContent sx={{ p: 2, bgcolor: "background.paper" }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={650}>
+                    {watchedCarouselCode || "CAROUSEL_CODE"}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={700} sx={{ overflowWrap: "anywhere", mt: 0.5 }}>
+                    {watchedEnTitle || "Carousel Banner Title"}
+                  </Typography>
+                  {watchedEnSubtitle && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {watchedEnSubtitle}
+                    </Typography>
+                  )}
+                  {watchedActionType !== "NONE" && (
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Tapping banner triggers: <strong>{watchedActionType}</strong>
+                      </Typography>
+                      {watchedActionValue && (
+                        <Typography variant="caption" sx={{ color: "primary.main", overflowWrap: "anywhere" }}>
+                          {watchedActionValue}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Stack>
+          </Grid>
+
+          {/* Kannada Preview */}
+          <Grid item xs={12} md={6}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" fontWeight={700} color="secondary.main">
+                  ಕನ್ನಡ ಸ್ಲೈಡ್ ಮುನ್ನೋಟ (Kannada Preview)
+                </Typography>
+                <Chip
+                  size="small"
+                  icon={<PhoneAndroidOutlined fontSize="small" />}
+                  label="ಕನ್ನಡ (kn)"
+                  color="secondary"
+                  variant="outlined"
+                />
+              </Stack>
+
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+                  position: "relative",
+                  border: 1,
+                  borderColor: "divider",
+                }}
+              >
+                {/* Badges on preview card */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    zIndex: 2,
+                    display: "flex",
+                    gap: 0.75,
+                  }}
+                >
+                  <Chip
+                    size="small"
+                    label={watchedIsActive ? "Active" : "Inactive"}
+                    color={watchedIsActive ? "success" : "default"}
+                    sx={{ fontWeight: 600, backdropFilter: "blur(4px)", bgcolor: watchedIsActive ? "success.main" : "rgba(0,0,0,0.6)", color: "#fff" }}
+                  />
+                  {watchedActionType !== "NONE" && (
+                    <Chip
+                      size="small"
+                      label={watchedActionType}
+                      color="primary"
+                      sx={{ fontWeight: 600, backdropFilter: "blur(4px)" }}
+                    />
+                  )}
+                </Box>
+
+                {(watchedKnImage || watchedEnImage) ? (
+                  <CardMedia
+                    component="img"
+                    height="220"
+                    image={sanitizeImageUrl(watchedKnImage || watchedEnImage) || watchedKnImage || watchedEnImage}
+                    alt={watchedKnTitle || watchedEnTitle || "Kannada Banner"}
+                    sx={{
+                      bgcolor: "action.hover",
+                      objectFit: "cover",
+                    }}
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      height: 200,
+                      bgcolor: "action.hover",
+                      display: "grid",
+                      placeItems: "center",
+                      p: 2,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Stack alignItems="center" spacing={1}>
+                      <CollectionsOutlined sx={{ fontSize: 48, color: "text.disabled" }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Enter Kannada or English image URL above to see preview
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )}
+
+                <CardContent sx={{ p: 2, bgcolor: "background.paper" }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={650}>
+                    {watchedCarouselCode || "CAROUSEL_CODE"}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={700} sx={{ overflowWrap: "anywhere", mt: 0.5 }}>
+                    {watchedKnTitle || watchedEnTitle || "ಬ್ಯಾನರ್ ಶೀರ್ಷಿಕೆ"}
+                  </Typography>
+                  {(watchedKnSubtitle || watchedEnSubtitle) && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {watchedKnSubtitle || watchedEnSubtitle}
+                    </Typography>
+                  )}
+                  {watchedActionType !== "NONE" && (
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Tapping banner triggers: <strong>{watchedActionType}</strong>
+                      </Typography>
+                      {watchedActionValue && (
+                        <Typography variant="caption" sx={{ color: "primary.main", overflowWrap: "anywhere" }}>
+                          {watchedActionValue}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Stack>
+          </Grid>
         </Grid>
-      </Grid>
+      </Paper>
     </Stack>
   );
 };

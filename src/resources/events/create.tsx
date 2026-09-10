@@ -20,6 +20,7 @@ export const EventCreate = () => {
     formState: { errors },
     refineCore: { onFinish },
   } = useForm<AppEvent, HttpError, any>({
+    mode: "onChange",
     defaultValues: {
       event_code: generateEventCode(),
       version: 1,

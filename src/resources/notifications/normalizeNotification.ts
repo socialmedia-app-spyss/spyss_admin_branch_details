@@ -6,6 +6,7 @@ import type {
   NotificationTargetType,
   NotificationType,
 } from "../../types/notification";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl.ts";
 
 export const kannadaScriptPattern = /[\u0C80-\u0CFF]/;
 export const englishLettersPattern = /[A-Za-z]/;
@@ -162,6 +163,12 @@ export const normalizeNotification = (
     version = 1;
   }
 
+  const cleanedImageUrl = sanitizeImageUrl(input.image_url);
+  if (cleanedImageUrl) {
+    const err = validateImageUrl(cleanedImageUrl, { required: false, fieldLabel: "Notification image URL" });
+    if (err !== true) throw new Error(err);
+  }
+
   return {
     notification_code: notificationCode,
     version,
@@ -171,7 +178,7 @@ export const normalizeNotification = (
     target_payload: targetPayload,
     title,
     body,
-    image_url: optionalText(input.image_url),
+    image_url: cleanedImageUrl,
     action_type: actionType,
     action_payload: actionPayload,
     date_time: dateTimeIso,

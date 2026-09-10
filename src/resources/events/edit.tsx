@@ -17,7 +17,9 @@ export const EventEdit = () => {
     watch,
     formState: { errors },
     refineCore: { onFinish, query },
-  } = useForm<AppEvent, HttpError, any>();
+  } = useForm<AppEvent, HttpError, any>({
+    mode: "onChange",
+  });
 
   const record = query?.data?.data;
 

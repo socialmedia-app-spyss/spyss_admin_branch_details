@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
   Avatar,
@@ -19,8 +19,6 @@ import {
   Select,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -32,6 +30,7 @@ import {
   CollectionsOutlined,
   ContactPhone,
   Event as EventIcon,
+  Language,
   Link as LinkIcon,
   LocationOn,
   Map as MapIcon,
@@ -52,7 +51,12 @@ import type {
 } from "react-hook-form";
 import type { AppEventInput, EventCategory } from "../../types/event";
 import { EVENT_CATEGORIES } from "../../types/event";
-import { generateEventCode } from "./normalizeEvent";
+import {
+  generateEventCode,
+  validateEnglishEventText,
+  validateKannadaEventText,
+} from "./normalizeEvent";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl";
 
 type EventFormProps = {
   register: UseFormRegister<AppEventInput>;
@@ -63,6 +67,8 @@ type EventFormProps = {
   watch: UseFormWatch<AppEventInput>;
   isEdit?: boolean;
 };
+
+const shrinkLabel = { shrink: true };
 
 const toDateTimeLocal = (value?: string | null) => {
   if (!value) return "";
@@ -102,8 +108,6 @@ export const EventForm: React.FC<EventFormProps> = ({
   watch,
   isEdit: _isEdit = false,
 }) => {
-  const [langTab, setLangTab] = useState<"en" | "kn">("en");
-
   const category = watch("category") || "GENERAL";
   const isActive = watch("is_active") ?? true;
   const sendAnnouncementPush = watch("send_announcement_push") ?? true;
@@ -154,6 +158,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   })}
                   label="Event Code *"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   error={Boolean(errors.event_code)}
                   helperText={
                     errors.event_code?.message ||
@@ -203,6 +208,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   label="Version"
                   type="number"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   InputProps={{ inputProps: { min: 1, step: 1 } }}
                   error={Boolean(errors.version)}
                 />
@@ -321,228 +327,422 @@ export const EventForm: React.FC<EventFormProps> = ({
         <Card variant="outlined" sx={{ borderRadius: 2.5 }}>
           <CardHeader
             avatar={<Translate color="primary" />}
-            title="Localized Content"
-            subheader="Provide event information in English and Kannada"
+            title="Event Content & Localized Details"
+            subheader="Provide event information in English and Kannada (Title in at least one language is required)"
             action={
-              <Tabs
-                value={langTab}
-                onChange={(_, val) => setLangTab(val)}
-                textColor="primary"
-                indicatorColor="primary"
-                sx={{ minHeight: 36 }}
-              >
-                <Tab
-                  value="en"
-                  label="English"
-                  sx={{ textTransform: "none", fontWeight: 700, minHeight: 36, py: 0.5 }}
-                />
-                <Tab
-                  value="kn"
-                  label="ಕನ್ನಡ (Kannada)"
-                  sx={{ textTransform: "none", fontWeight: 700, minHeight: 36, py: 0.5 }}
-                />
-              </Tabs>
+              <Chip
+                label="English & Kannada (Bilingual)"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 700 }}
+              />
             }
           />
           <Divider />
           <CardContent>
-            {/* English Tab */}
-            <Box sx={{ display: langTab === "en" ? "block" : "none" }}>
-              <Stack spacing={2.5}>
-                <TextField
-                  {...register("title_en", {
-                    validate: (val) => {
-                      const knTitle = getValues("title_kn");
-                      if (!val?.trim() && !knTitle?.trim()) {
-                        return "Event title in either English or Kannada is required.";
+            <Grid container spacing={3}>
+              {/* English Column */}
+              <Grid item xs={12} md={6}>
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: "divider",
+                    height: "100%",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={2}
+                    color="primary.main"
+                  >
+                    <Language fontSize="small" />
+                    <Typography variant="subtitle2" fontWeight={700} color="primary.main">
+                      English Event Details
+                    </Typography>
+                  </Stack>
+
+                  <Stack spacing={2.5}>
+                    <TextField
+                      {...register("title_en", {
+                        validate: (val) => {
+                          const knTitle = getValues("title_kn");
+                          if (!val?.trim() && !knTitle?.trim()) {
+                            return "Event title in either English or Kannada is required.";
+                          }
+                          if (val?.trim()) {
+                            const langErr = validateEnglishEventText(val, "English Title");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="Event Title (English) *"
+                      fullWidth
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.title_en)}
+                      helperText={
+                        errors.title_en?.message ||
+                        "Event name shown on banners and mobile list"
                       }
-                      return true;
-                    },
-                  })}
-                  label="Event Title (English) *"
-                  fullWidth
-                  error={Boolean(errors.title_en)}
-                  helperText={errors.title_en?.message}
-                  placeholder="e.g. State Level Yoga Shibira 2026"
-                />
-
-                <TextField
-                  {...register("short_description_en")}
-                  label="Short Description (English)"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="Brief summary displayed on event cards in mobile app"
-                />
-
-                <TextField
-                  {...register("full_description_en")}
-                  label="Full Description (English)"
-                  fullWidth
-                  multiline
-                  rows={5}
-                  placeholder="Comprehensive event details, guidelines, schedule breakdown, and prerequisites"
-                />
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      {...register("location_name_en")}
-                      label="Location / Venue Name (English)"
-                      fullWidth
-                      placeholder="e.g. SPYSS Kendriya Karyalaya"
+                      placeholder="e.g. State Level Yoga Shibira 2026"
                     />
-                  </Grid>
 
-                  <Grid item xs={12} md={6}>
                     <TextField
-                      {...register("contact_person_en")}
-                      label="Contact Person Name (English)"
-                      fullWidth
-                      placeholder="e.g. Shri Ramesh Kumar"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      {...register("address_en")}
-                      label="Full Address (English)"
+                      {...register("short_description_en", {
+                        validate: (val) => {
+                          if (val?.trim()) {
+                            const langErr = validateEnglishEventText(val, "English Short Description");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="Short Description (English)"
                       fullWidth
                       multiline
                       rows={2}
-                      placeholder="e.g. #12, 5th Main, Malleshwaram, Bengaluru - 560003"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      {...register("image_url_en", { validate: isValidOptionalUrl })}
-                      label="Banner Image URL (English)"
-                      fullWidth
-                      error={Boolean(errors.image_url_en)}
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.short_description_en)}
                       helperText={
-                        errors.image_url_en?.message ||
-                        "Recommended resolution: 1280 × 720 (16:9) WebP / JPG"
+                        errors.short_description_en?.message ||
+                        "Brief summary displayed on event cards in mobile app"
                       }
-                      placeholder="https://..."
+                      placeholder="Brief summary displayed on event cards in mobile app"
                     />
-                    {imageUrlEn && (
-                      <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar
-                          variant="rounded"
-                          src={imageUrlEn}
-                          sx={{ width: 120, height: 68, borderRadius: 1.5 }}
-                        >
-                          <CollectionsOutlined />
-                        </Avatar>
-                        <Typography variant="caption" color="text.secondary">
-                          English Banner Preview
-                        </Typography>
-                      </Box>
-                    )}
-                  </Grid>
-                </Grid>
-              </Stack>
-            </Box>
 
-            {/* Kannada Tab */}
-            <Box sx={{ display: langTab === "kn" ? "block" : "none" }}>
-              <Stack spacing={2.5}>
-                <TextField
-                  {...register("title_kn", {
-                    validate: (val) => {
-                      const enTitle = getValues("title_en");
-                      if (!val?.trim() && !enTitle?.trim()) {
-                        return "Event title in either English or Kannada is required.";
+                    <TextField
+                      {...register("full_description_en", {
+                        validate: (val) => {
+                          if (val?.trim()) {
+                            const langErr = validateEnglishEventText(val, "English Full Description");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="Full Description (English)"
+                      fullWidth
+                      multiline
+                      rows={5}
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.full_description_en)}
+                      helperText={
+                        errors.full_description_en?.message ||
+                        "Comprehensive event details, guidelines, and schedule"
                       }
-                      return true;
-                    },
-                  })}
-                  label="ಕಾರ್ಯಕ್ರಮದ ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ) *"
-                  fullWidth
-                  error={Boolean(errors.title_kn)}
-                  helperText={errors.title_kn?.message}
-                  placeholder="ಉದಾ: ರಾಜ್ಯ ಮಟ್ಟದ ಯೋಗ ಶಿಬಿರ ೨೦೨೬"
-                />
-
-                <TextField
-                  {...register("short_description_kn")}
-                  label="ಸಂಕ್ಷಿಪ್ತ ವಿವರಣೆ (ಕನ್ನಡ)"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="ಮೊಬೈಲ್ ಆಪ್ ಕಾರ್ಡ್‌ನಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲಾಗುವ ಕಿರು ವಿವರಣೆ"
-                />
-
-                <TextField
-                  {...register("full_description_kn")}
-                  label="ಪೂರ್ಣ ವಿವರಣೆ (ಕನ್ನಡ)"
-                  fullWidth
-                  multiline
-                  rows={5}
-                  placeholder="ಕಾರ್ಯಕ್ರಮದ ಸಮಗ್ರ ಮಾಹಿತಿ, ನಿಯಮಗಳು ಮತ್ತು ವಿವರಗಳು"
-                />
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      {...register("location_name_kn")}
-                      label="ಸ್ಥಳದ ಹೆಸರು (ಕನ್ನಡ)"
-                      fullWidth
-                      placeholder="ಉದಾ: ಎಸ್.ಪಿ.ವೈ.ಎಸ್.ಎಸ್ ಕೇಂದ್ರ ಕಾರ್ಯಾಲಯ"
+                      placeholder="Comprehensive event details, guidelines, schedule breakdown, and prerequisites"
                     />
-                  </Grid>
 
-                  <Grid item xs={12} md={6}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          {...register("location_name_en", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateEnglishEventText(val, "English Location Name");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="Location / Venue Name (English)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.location_name_en)}
+                          helperText={errors.location_name_en?.message}
+                          placeholder="e.g. SPYSS Kendriya Karyalaya"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          {...register("contact_person_en", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateEnglishEventText(val, "English Contact Person");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="Contact Person Name (English)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.contact_person_en)}
+                          helperText={errors.contact_person_en?.message}
+                          placeholder="e.g. Shri Ramesh Kumar"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <TextField
+                          {...register("address_en", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateEnglishEventText(val, "English Address");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="Full Address (English)"
+                          fullWidth
+                          multiline
+                          rows={2}
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.address_en)}
+                          helperText={errors.address_en?.message}
+                          placeholder="e.g. #12, 5th Main, Malleshwaram, Bengaluru - 560003"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <TextField
+                          {...register("image_url_en", {
+                            validate: (val) =>
+                              validateImageUrl(val, { required: false, fieldLabel: "English image URL" }),
+                            onBlur: (e) => {
+                              const cleaned = sanitizeImageUrl(e.target.value);
+                              if (cleaned && cleaned !== e.target.value) {
+                                setValue("image_url_en", cleaned, { shouldValidate: true });
+                              }
+                            },
+                          })}
+                          label="Banner Image URL (English)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.image_url_en)}
+                          helperText={
+                            errors.image_url_en?.message ||
+                            "Recommended resolution: 1280 × 720 (16:9) WebP / JPG / PNG (SVG unsupported)"
+                          }
+                          placeholder="https://..."
+                        />
+                        {imageUrlEn && (
+                          <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}>
+                            <Avatar
+                              variant="rounded"
+                              src={sanitizeImageUrl(imageUrlEn) || imageUrlEn}
+                              sx={{ width: 120, height: 68, borderRadius: 1.5 }}
+                            >
+                              <CollectionsOutlined />
+                            </Avatar>
+                            <Typography variant="caption" color="text.secondary">
+                              English Banner Preview
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </Box>
+              </Grid>
+
+              {/* Kannada Column */}
+              <Grid item xs={12} md={6}>
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: "divider",
+                    height: "100%",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={2}
+                    color="secondary.main"
+                  >
+                    <Translate fontSize="small" />
+                    <Typography variant="subtitle2" fontWeight={700} color="secondary.main">
+                      ಕನ್ನಡ ವಿವರಗಳು (Kannada Details)
+                    </Typography>
+                  </Stack>
+
+                  <Stack spacing={2.5}>
                     <TextField
-                      {...register("contact_person_kn")}
-                      label="ಸಂಪರ್ಕ ವ್ಯಕ್ತಿ ಹೆಸರು (ಕನ್ನಡ)"
+                      {...register("title_kn", {
+                        validate: (val) => {
+                          const enTitle = getValues("title_en");
+                          if (!val?.trim() && !enTitle?.trim()) {
+                            return "Event title in either English or Kannada is required.";
+                          }
+                          if (val?.trim()) {
+                            const langErr = validateKannadaEventText(val, "ಕಾರ್ಯಕ್ರಮದ ಶೀರ್ಷಿಕೆ");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="ಕಾರ್ಯಕ್ರಮದ ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ) *"
                       fullWidth
-                      placeholder="ಉದಾ: ಶ್ರೀ ರಮೇಶ್ ಕುಮಾರ್"
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.title_kn)}
+                      helperText={
+                        errors.title_kn?.message ||
+                        "ಮೊಬೈಲ್ ಆಪ್ ಮತ್ತು ಬ್ಯಾನರ್‌ನಲ್ಲಿ ತೋರಿಸುವ ಶೀರ್ಷಿಕೆ (ಕನ್ನಡ ಮತ್ತು ಅಂಕಿಗಳು)"
+                      }
+                      placeholder="ಉದಾ: ರಾಜ್ಯ ಮಟ್ಟದ ಯೋಗ ಶಿಬಿರ 2026"
                     />
-                  </Grid>
 
-                  <Grid item xs={12}>
                     <TextField
-                      {...register("address_kn")}
-                      label="ವಿಳಾಸ (ಕನ್ನಡ)"
+                      {...register("short_description_kn", {
+                        validate: (val) => {
+                          if (val?.trim()) {
+                            const langErr = validateKannadaEventText(val, "ಕನ್ನಡ ಸಂಕ್ಷಿಪ್ತ ವಿವರಣೆ");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="ಸಂಕ್ಷಿಪ್ತ ವಿವರಣೆ (ಕನ್ನಡ)"
                       fullWidth
                       multiline
                       rows={2}
-                      placeholder="ಉದಾ: #೧೨, ೫ನೇ ಮುಖ್ಯ ರಸ್ತೆ, ಮಲ್ಲೇಶ್ವರಂ, ಬೆಂಗಳೂರು - ೫೬೦೦೦೩"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      {...register("image_url_kn", { validate: isValidOptionalUrl })}
-                      label="ಕನ್ನಡ ಬ್ಯಾನರ್ ಚಿತ್ರದ ಲಿಂಕ್ (URL)"
-                      fullWidth
-                      error={Boolean(errors.image_url_kn)}
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.short_description_kn)}
                       helperText={
-                        errors.image_url_kn?.message ||
-                        "ಶಿಫಾರಸು ಮಾಡಿದ ಅಳತೆ: 1280 × 720 (16:9) WebP / JPG"
+                        errors.short_description_kn?.message ||
+                        "ಮೊಬೈಲ್ ಆಪ್ ಕಾರ್ಡ್‌ನಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲಾಗುವ ಕಿರು ವಿವರಣೆ"
                       }
-                      placeholder="https://..."
+                      placeholder="ಮೊಬೈಲ್ ಆಪ್ ಕಾರ್ಡ್‌ನಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲಾಗುವ ಕಿರು ವಿವರಣೆ"
                     />
-                    {imageUrlKn && (
-                      <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar
-                          variant="rounded"
-                          src={imageUrlKn}
-                          sx={{ width: 120, height: 68, borderRadius: 1.5 }}
-                        >
-                          <CollectionsOutlined />
-                        </Avatar>
-                        <Typography variant="caption" color="text.secondary">
-                          ಕನ್ನಡ ಬ್ಯಾನರ್ ಮುನ್ನೋಟ (Kannada Preview)
-                        </Typography>
-                      </Box>
-                    )}
-                  </Grid>
-                </Grid>
-              </Stack>
-            </Box>
+
+                    <TextField
+                      {...register("full_description_kn", {
+                        validate: (val) => {
+                          if (val?.trim()) {
+                            const langErr = validateKannadaEventText(val, "ಕನ್ನಡ ಪೂರ್ಣ ವಿವರಣೆ");
+                            if (langErr !== true) return langErr;
+                          }
+                          return true;
+                        },
+                      })}
+                      label="ಪೂರ್ಣ ವಿವರಣೆ (ಕನ್ನಡ)"
+                      fullWidth
+                      multiline
+                      rows={5}
+                      InputLabelProps={shrinkLabel}
+                      error={Boolean(errors.full_description_kn)}
+                      helperText={
+                        errors.full_description_kn?.message ||
+                        "ಕಾರ್ಯಕ್ರಮದ ಸಮಗ್ರ ಮಾಹಿತಿ, ನಿಯಮಗಳು ಮತ್ತು ವಿವರಗಳು"
+                      }
+                      placeholder="ಕಾರ್ಯಕ್ರಮದ ಸಮಗ್ರ ಮಾಹಿತಿ, ನಿಯಮಗಳು ಮತ್ತು ವಿವರಗಳು"
+                    />
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          {...register("location_name_kn", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateKannadaEventText(val, "ಸ್ಥಳದ ಹೆಸರು");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="ಸ್ಥಳದ ಹೆಸರು (ಕನ್ನಡ)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.location_name_kn)}
+                          helperText={errors.location_name_kn?.message}
+                          placeholder="ಉದಾ: ಎಸ್.ಪಿ.ವೈ.ಎಸ್.ಎಸ್ ಕೇಂದ್ರ ಕಾರ್ಯಾಲಯ"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          {...register("contact_person_kn", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateKannadaEventText(val, "ಸಂಪರ್ಕ ವ್ಯಕ್ತಿ ಹೆಸರು");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="ಸಂಪರ್ಕ ವ್ಯಕ್ತಿ ಹೆಸರು (ಕನ್ನಡ)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.contact_person_kn)}
+                          helperText={errors.contact_person_kn?.message}
+                          placeholder="ಉದಾ: ಶ್ರೀ ರಮೇಶ್ ಕುಮಾರ್"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <TextField
+                          {...register("address_kn", {
+                            validate: (val) => {
+                              if (val?.trim()) {
+                                const langErr = validateKannadaEventText(val, "ವಿಳಾಸ");
+                                if (langErr !== true) return langErr;
+                              }
+                              return true;
+                            },
+                          })}
+                          label="ವಿಳಾಸ (ಕನ್ನಡ)"
+                          fullWidth
+                          multiline
+                          rows={2}
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.address_kn)}
+                          helperText={errors.address_kn?.message}
+                          placeholder="ಉದಾ: #12, 5ನೇ ಮುಖ್ಯ ರಸ್ತೆ, ಮಲ್ಲೇಶ್ವರಂ, ಬೆಂಗಳೂರು - 560003"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <TextField
+                          {...register("image_url_kn", {
+                            validate: (val) =>
+                              validateImageUrl(val, { required: false, fieldLabel: "Kannada image URL" }),
+                            onBlur: (e) => {
+                              const cleaned = sanitizeImageUrl(e.target.value);
+                              if (cleaned && cleaned !== e.target.value) {
+                                setValue("image_url_kn", cleaned, { shouldValidate: true });
+                              }
+                            },
+                          })}
+                          label="ಕನ್ನಡ ಬ್ಯಾನರ್ ಚಿತ್ರದ ಲಿಂಕ್ (URL)"
+                          fullWidth
+                          InputLabelProps={shrinkLabel}
+                          error={Boolean(errors.image_url_kn)}
+                          helperText={
+                            errors.image_url_kn?.message ||
+                            "ಶಿಫಾರಸು ಮಾಡಿದ ಅಳತೆ: 1280 × 720 (16:9) WebP / JPG / PNG (SVG unsupported)"
+                          }
+                          placeholder="https://..."
+                        />
+                        {imageUrlKn && (
+                          <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}>
+                            <Avatar
+                              variant="rounded"
+                              src={sanitizeImageUrl(imageUrlKn) || imageUrlKn}
+                              sx={{ width: 120, height: 68, borderRadius: 1.5 }}
+                            >
+                              <CollectionsOutlined />
+                            </Avatar>
+                            <Typography variant="caption" color="text.secondary">
+                              ಕನ್ನಡ ಬ್ಯಾನರ್ ಮುನ್ನೋಟ (Kannada Preview)
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </Box>
+              </Grid>
+            </Grid>
           </CardContent>
         </Card>
 
@@ -551,10 +751,13 @@ export const EventForm: React.FC<EventFormProps> = ({
           <CardHeader
             avatar={<CalendarMonth color="primary" />}
             title="Schedule, Timezone & Visibility"
-            subheader="Event start, end, publishing date, and timezone configuration"
+            subheader="Event start, end, publishing date, and timezone configuration (All times must be entered in Indian Standard Time - IST)"
           />
           <Divider />
           <CardContent>
+            <Alert severity="info" sx={{ mb: 2.5, borderRadius: 2 }}>
+              <strong>Note:</strong> Please enter all event schedule and visibility dates and times in <strong>Indian Standard Time (IST)</strong>.
+            </Alert>
             <Grid container spacing={2.5}>
               <Grid item xs={12} sm={6} md={4}>
                 <Controller
@@ -566,12 +769,12 @@ export const EventForm: React.FC<EventFormProps> = ({
                       {...field}
                       value={toDateTimeLocal(field.value)}
                       onChange={(e) => field.onChange(e.target.value)}
-                      label="Event Start Date & Time *"
+                      label="Event Start Date & Time (IST) *"
                       type="datetime-local"
                       fullWidth
-                      InputLabelProps={{ shrink: true }}
+                      InputLabelProps={shrinkLabel}
                       error={Boolean(errors.start_datetime)}
-                      helperText={errors.start_datetime?.message}
+                      helperText={errors.start_datetime?.message || "Time in IST"}
                     />
                   )}
                 />
@@ -596,12 +799,12 @@ export const EventForm: React.FC<EventFormProps> = ({
                       {...field}
                       value={toDateTimeLocal(field.value)}
                       onChange={(e) => field.onChange(e.target.value)}
-                      label="Event End Date & Time *"
+                      label="Event End Date & Time (IST) *"
                       type="datetime-local"
                       fullWidth
-                      InputLabelProps={{ shrink: true }}
+                      InputLabelProps={shrinkLabel}
                       error={Boolean(errors.end_datetime)}
-                      helperText={errors.end_datetime?.message}
+                      helperText={errors.end_datetime?.message || "Time in IST"}
                     />
                   )}
                 />
@@ -616,11 +819,11 @@ export const EventForm: React.FC<EventFormProps> = ({
                       {...field}
                       value={toDateTimeLocal(field.value)}
                       onChange={(e) => field.onChange(e.target.value)}
-                      label="Visible in App From"
+                      label="Visible in App From (IST)"
                       type="datetime-local"
                       fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      helperText="Date from which the event appears in the mobile app list"
+                      InputLabelProps={shrinkLabel}
+                      helperText="Time in IST. Date from which the event appears in the mobile app list"
                     />
                   )}
                 />
@@ -631,6 +834,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   {...register("event_timezone")}
                   label="Event Timezone"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   defaultValue="Asia/Kolkata"
                   helperText="Default: Asia/Kolkata (IST)"
                 />
@@ -654,6 +858,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   {...register("contact_phone")}
                   label="Contact Phone Number"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   placeholder="+91 98765 43210"
                   InputProps={{
                     startAdornment: (
@@ -670,6 +875,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   {...register("map_url", { validate: isValidOptionalUrl })}
                   label="Google Maps Location URL"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   error={Boolean(errors.map_url)}
                   helperText={errors.map_url?.message || "Direct Google Maps pin / directions link"}
                   placeholder="https://maps.google.com/..."
@@ -698,6 +904,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                   {...register("registration_link", { validate: isValidOptionalUrl })}
                   label="Registration / RSVP URL"
                   fullWidth
+                  InputLabelProps={shrinkLabel}
                   error={Boolean(errors.registration_link)}
                   helperText={errors.registration_link?.message || "Online registration page link"}
                   placeholder="https://..."

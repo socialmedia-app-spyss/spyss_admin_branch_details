@@ -3,6 +3,7 @@ import type {
   CarouselLocaleContent,
   CarouselTranslations,
 } from "../../types/carousel";
+import { sanitizeImageUrl, validateImageUrl } from "../../utils/imageUrl.ts";
 
 const optionalText = (value?: string | null): string | null => {
   if (!value) return null;
@@ -14,6 +15,43 @@ const optionalDate = (value?: string | null): string | null => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+export const kannadaScriptPattern = /[\u0C80-\u0CFF]/;
+export const englishLettersPattern = /[A-Za-z]/;
+
+export const validateEnglishCarouselText = (
+  value?: string | null,
+  fieldLabel: string = "English content"
+): true | string => {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  if (kannadaScriptPattern.test(text)) {
+    return `${fieldLabel} cannot contain Kannada characters. Please enter English text only.`;
+  }
+  if (!englishLettersPattern.test(text)) {
+    return `${fieldLabel} must contain English letters.`;
+  }
+  return true;
+};
+
+export const validateKannadaCarouselText = (
+  value?: string | null,
+  fieldLabel: string = "Kannada content"
+): true | string => {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  if (englishLettersPattern.test(text)) {
+    return `${fieldLabel} cannot contain English letters (English numbers 0-9 are allowed).`;
+  }
+  if (!kannadaScriptPattern.test(text)) {
+    return `${fieldLabel} must contain Kannada characters.`;
+  }
+  return true;
 };
 
 export const normalizeCarousel = (
@@ -28,14 +66,50 @@ export const normalizeCarousel = (
   default_locale: string;
   translations: CarouselTranslations;
 } => {
+  if (values.title_en?.trim()) {
+    const err = validateEnglishCarouselText(values.title_en, "English Title");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.subtitle_en?.trim()) {
+    const err = validateEnglishCarouselText(values.subtitle_en, "English Subtitle");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.alt_text_en?.trim()) {
+    const err = validateEnglishCarouselText(values.alt_text_en, "English Alt Text");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.description_en?.trim()) {
+    const err = validateEnglishCarouselText(values.description_en, "English Description");
+    if (err !== true) throw new Error(err);
+  }
+
+  if (values.title_kn?.trim()) {
+    const err = validateKannadaCarouselText(values.title_kn, "Kannada Title");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.subtitle_kn?.trim()) {
+    const err = validateKannadaCarouselText(values.subtitle_kn, "Kannada Subtitle");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.alt_text_kn?.trim()) {
+    const err = validateKannadaCarouselText(values.alt_text_kn, "Kannada Alt Text");
+    if (err !== true) throw new Error(err);
+  }
+  if (values.description_kn?.trim()) {
+    const err = validateKannadaCarouselText(values.description_kn, "Kannada Description");
+    if (err !== true) throw new Error(err);
+  }
+
   const defaultLocale = values.default_locale?.trim() || "en";
   const translations: CarouselTranslations = {
     ...(values.translations || {}),
   };
 
   // Build English (en) translation
-  const enImageUrl = optionalText(values.image_url_en);
+  const enImageUrl = sanitizeImageUrl(values.image_url_en);
   if (enImageUrl) {
+    const err = validateImageUrl(enImageUrl, { required: false, requireHttps: true, fieldLabel: "English banner image URL" });
+    if (err !== true) throw new Error(err);
     translations.en = {
       image_url: enImageUrl,
       title: optionalText(values.title_en),
@@ -46,8 +120,10 @@ export const normalizeCarousel = (
   }
 
   // Build Kannada (kn) translation
-  const knImageUrl = optionalText(values.image_url_kn);
+  const knImageUrl = sanitizeImageUrl(values.image_url_kn);
   if (knImageUrl) {
+    const err = validateImageUrl(knImageUrl, { required: false, requireHttps: true, fieldLabel: "Kannada banner image URL" });
+    if (err !== true) throw new Error(err);
     translations.kn = {
       image_url: knImageUrl,
       title: optionalText(values.title_kn),
