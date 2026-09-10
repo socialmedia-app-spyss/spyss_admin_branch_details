@@ -9,7 +9,7 @@ export const PanchangaStats = () => {
   const navigate = useNavigate();
   const [selectedMonth, setSelectedMonth] = useState("");
   const { result, query } = useList<DailyPanchanga>({
-    resource: "daily_panchanga",
+    resource: "app_panchanga",
     pagination: { mode: "off" },
   });
   const records = result?.data ?? [];

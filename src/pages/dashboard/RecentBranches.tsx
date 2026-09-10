@@ -1,13 +1,24 @@
 import React from "react";
 import { useList } from "@refinedev/core";
-import { Card, CardContent, Typography, CircularProgress, List, ListItem, ListItemText } from "@mui/material";
+import {
+  Card,
+  CardContent,
+  Typography,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+} from "@mui/material";
 import { useLanguage } from "../../hooks/useLanguage";
-import { getLocalizedName } from "../../utils/i18n";
+import { getLocalizedJson } from "../../utils/i18n";
+import type { Branch } from "../../types/branch";
 
 export const RecentBranches: React.FC = () => {
   const { language } = useLanguage();
-  const { query: { data: branchesData, isLoading, isError } } = useList({ // Corrected destructuring
-    resource: "latest_branches",
+  const {
+    query: { data: branchesData, isLoading, isError },
+  } = useList<Branch>({
+    resource: "app_branches",
     pagination: {
       pageSize: 5,
     },
@@ -49,10 +60,10 @@ export const RecentBranches: React.FC = () => {
         </Typography>
         {branches.length > 0 ? (
           <List>
-            {branches.map((branch: any) => (
+            {branches.map((branch) => (
               <ListItem key={branch.id}>
                 <ListItemText
-                  primary={getLocalizedName(branch.branch_name_en, branch.branch_name_kn, language)}
+                  primary={getLocalizedJson(branch.branch_name, language) || "Branch"}
                   secondary={new Date(branch.created_at).toLocaleDateString()}
                 />
               </ListItem>

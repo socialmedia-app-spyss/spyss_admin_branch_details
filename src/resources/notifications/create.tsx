@@ -1,26 +1,74 @@
+import type { HttpError } from "@refinedev/core";
 import { Create } from "@refinedev/mui";
-import type { BaseRecord, HttpError } from "@refinedev/core";
 import { useForm } from "@refinedev/react-hook-form";
 import { NotificationForm } from "./NotificationForm";
-import type { NotificationInput } from "../../types/notification";
-
-const optionalText = (value?: string | null) => value?.trim() || null;
-const optionalDate = (value?: string | null) => value ? new Date(value).toISOString() : null;
+import { generateNotificationCode, normalizeNotification } from "./normalizeNotification";
+import type { AppNotification, AppNotificationInput } from "../../types/notification";
 
 export const NotificationCreate = () => {
-  const { saveButtonProps, register, control, handleSubmit, formState: { errors }, refineCore: { onFinish } } =
-    useForm<BaseRecord, HttpError, NotificationInput>({
-      defaultValues: { priority: "NORMAL", type: "GENERAL", title_en: "", body_en: "", title_kn: "", body_kn: "", date_time: null, expiry_date: null, is_active: true },
-    });
+  const now = new Date();
 
-  const submit = (values: NotificationInput) => onFinish({
-    ...values,
-    title_en: values.title_en.trim(), body_en: values.body_en.trim(),
-    title_kn: optionalText(values.title_kn), body_kn: optionalText(values.body_kn),
-    date_time: optionalDate(values.date_time), expiry_date: optionalDate(values.expiry_date),
+  const {
+    saveButtonProps,
+    register,
+    control,
+    handleSubmit,
+    getValues,
+    setValue,
+    watch,
+    formState: { errors },
+    refineCore: { onFinish },
+  } = useForm<AppNotification, HttpError, any>({
+    mode: "onChange",
+    defaultValues: {
+      notification_code: generateNotificationCode(),
+      version: 1,
+      priority: "NORMAL",
+      type: "GENERAL",
+      target_type: "ALL",
+      target_valaya_id: "",
+      target_branch_id: "",
+      target_role: "",
+      target_topic: "",
+      target_language: "kn",
+      title_en: "",
+      title_kn: "",
+      body_en: "",
+      body_kn: "",
+      image_url: "",
+      action_type: "NONE",
+      action_url: "",
+      action_event_id: "",
+      action_branch_id: "",
+      date_time: now.toISOString(),
+      expiry_date: null,
+      send_status: "PENDING",
+      is_active: true,
+    },
   });
 
-  return <Create title="Create Notification" saveButtonProps={{ ...saveButtonProps, onClick: handleSubmit(submit) }}>
-    <NotificationForm register={register} control={control} errors={errors} />
-  </Create>;
+  const onSubmit = (values: AppNotificationInput) => {
+    const payload = normalizeNotification(values);
+    return onFinish(payload);
+  };
+
+  return (
+    <Create
+      title="Create New App Notification"
+      saveButtonProps={{
+        ...saveButtonProps,
+        onClick: handleSubmit(onSubmit),
+      }}
+    >
+      <NotificationForm
+        register={register}
+        control={control}
+        errors={errors}
+        getValues={getValues}
+        setValue={setValue}
+        watch={watch}
+        isEdit={false}
+      />
+    </Create>
+  );
 };

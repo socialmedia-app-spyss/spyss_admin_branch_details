@@ -75,8 +75,11 @@ const editableInput = (row: PanchangaGridRow): DailyPanchangaInput =>
     special_note2: row.special_note2,
     special_note3: row.special_note3,
     approve_status: row.approve_status ?? false,
+    is_active: row.is_active ?? true,
     image_url: row.image_url,
     image_storage_path: row.image_storage_path,
+    image_generation_status: row.image_generation_status || "PENDING",
+    image_version: row.image_version || 1,
     image_template_id: row.image_template_id,
   });
 
@@ -85,7 +88,6 @@ const emptyPanchangaRow = (id: string): PanchangaGridRow => ({
   isNew: true,
   language: "kn",
   panchanga_date: "",
-  date_index: 0,
   krishna_shaka_year: null,
   shalivahana_shaka_year: null,
   kali_yuga_year: 28,
@@ -105,6 +107,10 @@ const emptyPanchangaRow = (id: string): PanchangaGridRow => ({
   special_note2: "",
   special_note3: "",
   approve_status: false,
+  is_active: true,
+  image_generation_status: "PENDING",
+  image_version: 1,
+  generation_attempts: 0,
   created_by: null,
   updated_by: null,
   created_at: "",
@@ -261,7 +267,7 @@ export const PanchangaList = () => {
       ]
     : [];
   const { dataGridProps } = useDataGrid<DailyPanchanga>({
-    resource: "daily_panchanga",
+    resource: "app_panchanga",
     sorters: { initial: [{ field: "panchanga_date", order: "desc" }] },
     filters: { permanent: monthFilters },
   });
@@ -522,6 +528,45 @@ export const PanchangaList = () => {
           size="small"
           color={value ? "success" : "default"}
           label={value ? "Approved" : "Not Approved"}
+        />
+      ),
+    },
+    {
+      field: "image_generation_status",
+      headerName: "Poster Status",
+      width: 140,
+      renderCell: ({ value }) => {
+        const color =
+          value === "COMPLETED"
+            ? "success"
+            : value === "PROCESSING"
+            ? "info"
+            : value === "FAILED"
+            ? "error"
+            : "warning";
+        return (
+          <Chip
+            size="small"
+            color={color}
+            label={value || "PENDING"}
+            variant={value === "COMPLETED" ? "filled" : "outlined"}
+            sx={{ fontWeight: 600 }}
+          />
+        );
+      },
+    },
+    {
+      field: "is_active",
+      headerName: "Active",
+      width: 100,
+      editable: true,
+      type: "boolean",
+      renderCell: ({ value }) => (
+        <Chip
+          size="small"
+          color={value ? "success" : "default"}
+          label={value ? "Active" : "Inactive"}
+          variant={value ? "filled" : "outlined"}
         />
       ),
     },

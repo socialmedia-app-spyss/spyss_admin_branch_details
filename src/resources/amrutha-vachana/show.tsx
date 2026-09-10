@@ -29,7 +29,7 @@ const errorMessage = async (error: unknown) => {
 };
 
 export const AmruthaVachanaShow = () => {
-  const { query } = useShow<DailyAmruthaVachana>({ resource: "daily_amrutha_vachana" });
+  const { query } = useShow<DailyAmruthaVachana>({ resource: "app_amrutha_vachana" });
   const record = query.data?.data;
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

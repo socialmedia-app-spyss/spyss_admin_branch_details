@@ -40,7 +40,7 @@ const functionErrorMessage = async (error: unknown) => {
 };
 
 export const PanchangaShow = () => {
-  const { query } = useShow<DailyPanchanga>({ resource: "daily_panchanga" });
+  const { query } = useShow<DailyPanchanga>({ resource: "app_panchanga" });
   const record = query.data?.data;
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export const PanchangaShow = () => {
     try {
       const { data, error } = await supabaseClient.functions.invoke<GeneratePosterResponse>(
         PANCHANGA_IMAGE_FUNCTION,
-        { body: { panchanga_date: record.panchanga_date } },
+        { body: { panchanga_date: record.panchanga_date, language: record.language || "kn" } },
       );
 
       if (error) {
@@ -138,6 +138,15 @@ export const PanchangaShow = () => {
     );
   }
 
+  const genStatusColor =
+    record.image_generation_status === "COMPLETED"
+      ? "success"
+      : record.image_generation_status === "PROCESSING"
+      ? "info"
+      : record.image_generation_status === "FAILED"
+      ? "error"
+      : "warning";
+
   return (
     <Show title="Panchanga Image">
       <Stack spacing={2} alignItems="center" width="100%">
@@ -146,12 +155,25 @@ export const PanchangaShow = () => {
           spacing={1}
           alignItems="center"
           justifyContent="center"
+          flexWrap="wrap"
         >
           <Typography variant="h6">{record.display_date || record.panchanga_date}</Typography>
           <Chip
             size="small"
             color={record.approve_status ? "success" : "default"}
             label={record.approve_status ? "Approved" : "Not Approved"}
+          />
+          <Chip
+            size="small"
+            color={genStatusColor}
+            label={`Poster: ${record.image_generation_status || "PENDING"}`}
+            variant="filled"
+          />
+          <Chip
+            size="small"
+            color={record.is_active ? "success" : "default"}
+            label={record.is_active ? "Active" : "Inactive"}
+            variant="outlined"
           />
         </Stack>
 

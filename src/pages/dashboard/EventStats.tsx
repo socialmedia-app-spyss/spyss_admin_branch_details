@@ -6,7 +6,7 @@ import type { Event } from "../../types/event";
 export const EventStats = () => {
   const navigate = useNavigate();
   const { result, query } = useList<Event>({
-    resource: "events",
+    resource: "app_events",
     pagination: { mode: "off" },
   });
 

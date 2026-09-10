@@ -12,7 +12,7 @@ export const AttentionPanel = () => {
   const canManagePanchanga =
     identity?.role === "SUPER_ADMIN" || identity?.role === "PANCHANGA_ADMIN";
   const panchangas = useList<DailyPanchanga>({
-    resource: "daily_panchanga",
+    resource: "app_panchanga",
     pagination: { mode: "off" },
     queryOptions: { enabled: canManagePanchanga },
   });

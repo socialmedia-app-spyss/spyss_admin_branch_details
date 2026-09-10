@@ -9,19 +9,19 @@ import {
 } from "@mui/material";
 import type { UserProfile } from "../../types/user";
 import { useLanguage } from "../../hooks/useLanguage";
-import { getLocalizedName } from "../../utils/i18n";
+import { getLocalizedJson } from "../../utils/i18n";
+import type { LocalizedString } from "../../types/branch";
+import { NO_VALAYA_ACCESS_ID } from "../../services/valayaScope";
 
 type BranchCountRow = {
   id: string;
   district_id?: string | null;
   valaya_id?: string | null;
   master_districts?: {
-    district_name_en?: string | null;
-    district_name_kn?: string | null;
+    district_name?: LocalizedString | null;
   } | null;
   master_valayas?: {
-    valaya_name_en?: string | null;
-    valaya_name_kn?: string | null;
+    valaya_name?: LocalizedString | null;
     valaya_code?: string | null;
   } | null;
 };
@@ -43,20 +43,27 @@ export const ValayaBranchCounts: React.FC = () => {
   const { data: identity } = useGetIdentity<UserProfile>();
   const { language } = useLanguage();
   const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
-  const accessibleValayaIds = identity?.accessible_valaya_ids ?? [];
+  const accessibleValayaIds =
+    identity?.accessible_valaya_ids && identity.accessible_valaya_ids.length > 0
+      ? identity.accessible_valaya_ids
+      : identity?.valaya_id
+        ? [identity.valaya_id]
+        : [];
   const valayaAccessFilters = isValayaAdmin
     ? accessibleValayaIds.length > 0
       ? [{ field: "valaya_id", operator: "in" as const, value: accessibleValayaIds }]
-      : [{ field: "valaya_id", operator: "eq" as const, value: "__no_valaya_access__" }]
+      : [{ field: "valaya_id", operator: "eq" as const, value: NO_VALAYA_ACCESS_ID }]
     : [];
   const { result, query } = useList<BranchCountRow>({
-    resource: "latest_branches",
+    resource: "app_branches",
     filters: valayaAccessFilters,
     pagination: {
       mode: "off",
     },
     meta: {
-      select: "id, district_id, valaya_id, master_districts(district_name_en, district_name_kn), master_valayas(valaya_name_en, valaya_name_kn, valaya_code)",
+      // app_branches uses composite hierarchy constraints. Naming the
+      // relationships keeps PostgREST from treating the embeds as ambiguous.
+      select: "id, district_id, valaya_id, master_districts!fk_branch_state_district(district_name), master_valayas!app_branches_valaya_id_fkey(valaya_name, valaya_code)",
     },
   });
 
@@ -66,9 +73,9 @@ export const ValayaBranchCounts: React.FC = () => {
 
     for (const branch of branches) {
       const valayaCode = branch.master_valayas?.valaya_code || branch.valaya_id || "UNKNOWN";
-      const valayaName = getLocalizedName(branch.master_valayas?.valaya_name_en, branch.master_valayas?.valaya_name_kn, language) || "Unknown Valaya";
+      const valayaName = getLocalizedJson(branch.master_valayas?.valaya_name, language) || "Unknown Valaya";
       const districtId = branch.district_id || "UNKNOWN";
-      const districtName = getLocalizedName(branch.master_districts?.district_name_en, branch.master_districts?.district_name_kn, language) || "Unknown District";
+      const districtName = getLocalizedJson(branch.master_districts?.district_name, language) || "Unknown District";
 
       if (!countsByValaya.has(valayaCode)) {
         countsByValaya.set(valayaCode, {

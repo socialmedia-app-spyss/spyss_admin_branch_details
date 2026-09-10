@@ -27,9 +27,24 @@ import {
   userStatusOptions,
 } from "../../types/user";
 import { userService } from "../../services/userService";
+import { getMasterOptions } from "../../services/masterOptionsService";
 import { getDistinctValayaOptions, type ValayaOption } from "../../services/valayaScope";
 import { supabaseClient } from "../../supabaseClient";
 import type { MasterState } from "../../types/branch";
+
+const getStateDisplayName = (state?: MasterState | null): string => {
+  if (!state) return "";
+  if (typeof state.state_name_en === "string" && state.state_name_en.trim()) {
+    return state.state_name_en.trim();
+  }
+  if (typeof state.state_name === "object" && state.state_name) {
+    return state.state_name.en?.trim() || state.state_name.kn?.trim() || "";
+  }
+  if (typeof state.state_name === "string") {
+    return state.state_name;
+  }
+  return state.state_code || state.id || "";
+};
 
 export const UserManagementTable = () => {
   const { data: currentUser } = useGetIdentity<UserProfile>();
@@ -70,8 +85,8 @@ export const UserManagementTable = () => {
 
   const defaultStateId = useMemo(() => {
     const karnataka = stateOptions.find((state) => {
-      const name = state.state_name_en.toLowerCase();
-      const code = state.state_code.toLowerCase();
+      const name = getStateDisplayName(state).toLowerCase();
+      const code = (state.state_code ?? "").toLowerCase().trim();
       return name === "karnataka" || code === "ka" || code === "kar";
     });
 
@@ -79,21 +94,50 @@ export const UserManagementTable = () => {
   }, [stateOptions]);
 
   useEffect(() => {
-    const loadScopeOptions = async () => {
-      const [valayas, states] = await Promise.all([
-        getDistinctValayaOptions(),
-        supabaseClient
-          .from("master_states")
-          .select("*")
-          .eq("is_active", true)
-          .order("display_order", { ascending: true }),
-      ]);
+    let isMounted = true;
 
-      setValayaOptions(valayas);
-      setStateOptions((states.data ?? []) as MasterState[]);
+    const loadScopeOptions = async () => {
+      try {
+        const masterOptions = await getMasterOptions();
+        if (isMounted) {
+          setValayaOptions(masterOptions.distinctValayas);
+          setStateOptions(masterOptions.states);
+        }
+      } catch (err) {
+        console.error("UserManagementTable: Failed to load master options:", err);
+        const [valayas, states] = await Promise.all([
+          getDistinctValayaOptions(),
+          supabaseClient
+            .from("master_states")
+            .select("*")
+            .eq("is_active", true)
+            .order("display_order", { ascending: true }),
+        ]);
+
+        if (isMounted) {
+          setValayaOptions(valayas);
+          const normalizedStates = ((states.data ?? []) as Array<Record<string, unknown>>).map(
+            (row) => {
+              const localized = row.state_name as { en?: string; kn?: string } | undefined;
+              return {
+                ...row,
+                state_name_en:
+                  localized?.en || (row.state_name_en as string) || "",
+                state_name_kn:
+                  localized?.kn || localized?.en || (row.state_name_kn as string) || "",
+              } as MasterState;
+            },
+          );
+          setStateOptions(normalizedStates);
+        }
+      }
     };
 
     void loadScopeOptions();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -369,7 +413,7 @@ export const UserManagementTable = () => {
                         <MenuItem value="">Select Valaya</MenuItem>
                         {getValayaOptionsForUser(u).map((valaya) => (
                           <MenuItem key={valaya.id} value={valaya.id}>
-                            {valaya.valaya_name_en}
+                            {valaya.valaya_name_en || valaya.valaya_code || valaya.id}
                           </MenuItem>
                         ))}
                       </Select>
@@ -466,7 +510,7 @@ export const UserManagementTable = () => {
                   <MenuItem value="">Select State</MenuItem>
                   {stateOptions.map((state) => (
                     <MenuItem key={state.id} value={state.id}>
-                      {state.state_name_en}
+                      {getStateDisplayName(state)}
                     </MenuItem>
                   ))}
                 </Select>
@@ -491,7 +535,7 @@ export const UserManagementTable = () => {
                   <MenuItem value="">Select Valaya</MenuItem>
                   {getValayaOptionsForUser(pendingValayaUser).map((valaya) => (
                     <MenuItem key={valaya.id} value={valaya.id}>
-                      {valaya.valaya_name_en}
+                      {valaya.valaya_name_en || valaya.valaya_code || valaya.id}
                     </MenuItem>
                   ))}
                 </Select>
@@ -549,7 +593,7 @@ export const UserManagementTable = () => {
                     <MenuItem value="">Select State</MenuItem>
                     {stateOptions.map((state) => (
                       <MenuItem key={state.id} value={state.id}>
-                        {state.state_name_en}
+                        {getStateDisplayName(state)}
                       </MenuItem>
                     ))}
                   </Select>
@@ -573,7 +617,7 @@ export const UserManagementTable = () => {
                     <MenuItem value="">Select Valaya</MenuItem>
                     {getValayaOptionsForUser(pendingApprovalUser).map((valaya) => (
                       <MenuItem key={valaya.id} value={valaya.id}>
-                        {valaya.valaya_name_en}
+                        {valaya.valaya_name_en || valaya.valaya_code || valaya.id}
                       </MenuItem>
                     ))}
                   </Select>

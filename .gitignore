@@ -41,3 +41,9 @@ coverage/
 
 # Supabase local state
 supabase/.temp/
+
+# Temporary & Cache
+.font-update/
+.npm-cache/
+node_modules.deno-backup/
+deno.lock

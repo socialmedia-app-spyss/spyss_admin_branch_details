@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import type { Event } from "../../types/event";
 import type { Notification } from "../../types/notification";
 import type { UserProfile } from "../../types/user";
+import { NO_VALAYA_ACCESS_ID } from "../../services/valayaScope";
 
 type SummaryCardProps = {
   label: string;
@@ -58,24 +59,29 @@ export const OverviewStats = () => {
   const { data: identity } = useGetIdentity<UserProfile>();
   const isSuperAdmin = identity?.role === "SUPER_ADMIN";
   const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
-  const accessibleValayaIds = identity?.accessible_valaya_ids ?? [];
+  const accessibleValayaIds =
+    identity?.accessible_valaya_ids && identity.accessible_valaya_ids.length > 0
+      ? identity.accessible_valaya_ids
+      : identity?.valaya_id
+        ? [identity.valaya_id]
+        : [];
   const branches = useList({
-    resource: "latest_branches",
+    resource: "app_branches",
     filters: isValayaAdmin
       ? accessibleValayaIds.length
         ? [{ field: "valaya_id", operator: "in", value: accessibleValayaIds }]
-        : [{ field: "valaya_id", operator: "eq", value: "__no_valaya_access__" }]
+        : [{ field: "valaya_id", operator: "eq", value: NO_VALAYA_ACCESS_ID }]
       : [],
     pagination: { mode: "off" },
   });
   const users = useList({ resource: "user_profiles", pagination: { mode: "off" } });
   const notifications = useList<Notification>({
-    resource: "notifications",
+    resource: "app_notifications",
     pagination: { mode: "off" },
     queryOptions: { enabled: isSuperAdmin },
   });
   const events = useList<Event>({
-    resource: "events",
+    resource: "app_events",
     pagination: { mode: "off" },
     queryOptions: { enabled: isSuperAdmin },
   });

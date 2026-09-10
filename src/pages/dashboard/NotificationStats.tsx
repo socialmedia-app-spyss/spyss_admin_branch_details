@@ -6,7 +6,7 @@ import type { Notification } from "../../types/notification";
 export const NotificationStats = () => {
   const navigate = useNavigate();
   const { result, query } = useList<Notification>({
-    resource: "notifications",
+    resource: "app_notifications",
     pagination: { mode: "off" },
   });
 

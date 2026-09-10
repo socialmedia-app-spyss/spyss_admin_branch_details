@@ -231,7 +231,7 @@ Deno.serve(async (request) => {
     return json({ error: "Unauthorized" }, 401);
   }
   const { data: row, error: fetchError } = await supabase
-    .from("daily_amrutha_vachana")
+    .from("app_amrutha_vachana")
     .select(`*, amrutha_vachana_authors!inner(
       id, person_image_url, person_image_storage_path, updated_at,
       amrutha_vachana_author_translations(language, author_name, attribution_text, short_description, updated_at)
@@ -290,7 +290,7 @@ Deno.serve(async (request) => {
       });
     }
 
-    await supabase.from("daily_amrutha_vachana").update({
+    await supabase.from("app_amrutha_vachana").update({
       image_generation_status: "PROCESSING",
       image_generation_error: null,
       generation_attempts: Number(row.generation_attempts ?? 0) + 1,
@@ -337,7 +337,7 @@ Deno.serve(async (request) => {
       storagePath,
     );
     const imageUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
-    const { error: updateError } = await supabase.from("daily_amrutha_vachana")
+    const { error: updateError } = await supabase.from("app_amrutha_vachana")
       .update({
         image_url: imageUrl,
         image_storage_path: storagePath,
@@ -360,7 +360,7 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await supabase.from("daily_amrutha_vachana").update({
+    await supabase.from("app_amrutha_vachana").update({
       image_generation_status: "FAILED",
       image_generation_error: message,
     }).eq("id", row.id);

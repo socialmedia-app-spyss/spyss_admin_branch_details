@@ -128,7 +128,7 @@ export const AmruthaVachanaList = () => {
       ]
     : [];
   const { dataGridProps } = useDataGrid<DailyAmruthaVachana>({
-    resource: "daily_amrutha_vachana",
+    resource: "app_amrutha_vachana",
     sorters: { initial: [{ field: "vachana_date", order: "desc" }] },
     filters: { permanent: monthFilters },
   });
@@ -193,12 +193,12 @@ export const AmruthaVachanaList = () => {
     }
     const values = editableValues(row);
     if (row.isNew) {
-      const response = await createRecord({ resource: "daily_amrutha_vachana", values });
+      const response = await createRecord({ resource: "app_amrutha_vachana", values });
       setNewRows((rows) => rows.filter((item) => item.id !== row.id));
       return response.data as GridRow;
     }
     const response = await updateRecord({
-      resource: "daily_amrutha_vachana",
+      resource: "app_amrutha_vachana",
       id: row.id,
       values,
     });

@@ -11,7 +11,7 @@ export const RecentNotifications = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { query } = useList<Notification>({
-    resource: "notifications",
+    resource: "app_notifications",
     pagination: { pageSize: 3 },
     sorters: [{ field: "created_at", order: "desc" }],
   });
@@ -28,16 +28,45 @@ export const RecentNotifications = () => {
           <Typography color="text.secondary">Loading notifications...</Typography>
         ) : notifications.length > 0 ? (
           <List dense disablePadding>
-            {notifications.map((notification) => (
-              <ListItem key={notification.id} divider sx={{ cursor: "pointer" }} onClick={() => navigate(`/notifications/show/${notification.id}`)}
-                secondaryAction={<Chip size="small" label={notification.priority} color={notification.priority === "URGENT" ? "error" : notification.priority === "HIGH" ? "warning" : "default"} />}>
-                <ListItemText
-                  primary={getLocalizedName(notification.title_en, notification.title_kn, language)}
-                  secondary={`${notification.type} • ${formatDate(notification.date_time || notification.created_at)}`}
-                  sx={{ pr: 10 }}
-                />
-              </ListItem>
-            ))}
+            {notifications.map((notification: any) => {
+              const titleObj = notification.title || {};
+              const title =
+                titleObj[language] ||
+                titleObj.en ||
+                titleObj.kn ||
+                getLocalizedName(notification.title_en, notification.title_kn, language) ||
+                "Notification";
+
+              return (
+                <ListItem
+                  key={notification.id}
+                  divider
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/notifications/show/${notification.id}`)}
+                  secondaryAction={
+                    <Chip
+                      size="small"
+                      label={notification.priority}
+                      color={
+                        notification.priority === "URGENT"
+                          ? "error"
+                          : notification.priority === "HIGH"
+                          ? "warning"
+                          : "default"
+                      }
+                    />
+                  }
+                >
+                  <ListItemText
+                    primary={title}
+                    secondary={`${notification.type} • ${formatDate(
+                      notification.date_time || notification.created_at
+                    )}`}
+                    sx={{ pr: 10 }}
+                  />
+                </ListItem>
+              );
+            })}
           </List>
         ) : (
           <Typography variant="body2" color="text.secondary">No notifications found.</Typography>

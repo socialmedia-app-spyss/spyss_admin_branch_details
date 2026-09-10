@@ -424,6 +424,13 @@ entrypoint = "./functions/send-notification/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-notification/*.html" ]
 
+[functions.resolve-map-link]
+enabled = true
+# Allow browser preflight requests to reach the function. Authenticated requests
+# still include the Supabase session headers supplied by functions.invoke().
+verify_jwt = false
+entrypoint = "./functions/resolve-map-link/index.ts"
+
 [functions.generate-panchanga-kn]
 enabled = true
 # Kept disabled at the gateway so secret-authenticated cron requests continue

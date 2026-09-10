@@ -11,15 +11,19 @@ export const LoginPage = () => {
   const [loginError, setLoginError] = useState("");
   const { mutate: login, isPending } = useLogin<{ email: string; password: string }>({
     mutationOptions: {
-      onSuccess: async ({ success, error }) => {
+      onSuccess: async ({ success, error, redirectTo }) => {
         if (!success) {
           setLoginError(error?.message || "Invalid email or password");
           return;
         }
 
         setLoginError("");
+        // Access checks made before the new session is available can contain
+        // `can: false`. Remove them at the authentication boundary so the
+        // sidebar evaluates every resource against the newly loaded profile.
+        queryClient.removeQueries({ queryKey: ["access"] });
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
-        navigate("/dashboard", { replace: true });
+        navigate(redirectTo || "/dashboard", { replace: true });
       },
       onError: (error) => {
         setLoginError(error.message || "Invalid email or password");

@@ -1,18 +1,11 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { OpenLocationCode } from "npm:open-location-code@1.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const googleMapsRequestHeaders = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-IN,en;q=0.9",
 };
 
 type OpenStreetMapAddress = {
@@ -32,7 +25,125 @@ type OpenStreetMapResult = {
   address?: OpenStreetMapAddress;
 };
 
-async function reverseGeocodeWithOpenStreetMap(latitude: number, longitude: number) {
+type OpenStreetMapSearchResult = OpenStreetMapResult & {
+  lat?: string;
+  lon?: string;
+};
+
+async function forwardGeocodeWithOpenStreetMap(address: string) {
+  try {
+    const query = new URLSearchParams({
+      format: "jsonv2",
+      q: address,
+      countrycodes: "in",
+      limit: "1",
+      addressdetails: "1",
+    });
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?${query.toString()}`,
+      {
+        headers: {
+          "User-Agent":
+            "SPYSS-Admin/1.0 (https://socialmedia-app-spyss.github.io/spyss_admin_branch_details)",
+          "Accept-Language": "en-IN,en;q=0.9",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      console.warn("OpenStreetMap forward geocoding failed:", response.status);
+      return null;
+    }
+
+    const results = await response.json() as OpenStreetMapSearchResult[];
+    let first = results[0];
+
+    // Google frequently returns an exact short plus code but an address that
+    // Nominatim cannot match verbatim. Resolve the locality, then recover and
+    // decode that plus code instead of using a broad neighborhood centroid.
+    if (!first) {
+      const plusCode = address.match(
+        /\b([23456789CFGHJMPQRVWX]{4,7}\+[23456789CFGHJMPQRVWX]{2,3})\b/i,
+      )?.[1];
+      const parts = extractAddressParts(address);
+      const locality = [parts.city, parts.state, parts.country || "India"]
+        .filter(Boolean)
+        .join(", ");
+
+      if (plusCode && parts.city) {
+        // Respect Nominatim's public-service request interval.
+        await new Promise((resolve) => setTimeout(resolve, 1_100));
+        const localityQuery = new URLSearchParams({
+          format: "jsonv2",
+          q: locality,
+          countrycodes: "in",
+          limit: "1",
+        });
+        const localityResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?${localityQuery}`,
+          {
+            headers: {
+              "User-Agent":
+                "SPYSS-Admin/1.0 (https://socialmedia-app-spyss.github.io/spyss_admin_branch_details)",
+              "Accept-Language": "en-IN,en;q=0.9",
+            },
+          },
+        );
+        if (localityResponse.ok) {
+          const localityResults = await localityResponse
+            .json() as OpenStreetMapSearchResult[];
+          first = localityResults[0];
+          if (first) {
+            const referenceLatitude = Number(first.lat);
+            const referenceLongitude = Number(first.lon);
+            const codec = new OpenLocationCode();
+            const fullCode = codec.recoverNearest(
+              plusCode,
+              referenceLatitude,
+              referenceLongitude,
+            );
+            const decoded = codec.decode(fullCode);
+            const latitude = decoded.latitudeCenter;
+            const longitude = decoded.longitudeCenter;
+            if (isValidLatLng(latitude, longitude)) {
+              return {
+                coordinates: {
+                  latitude,
+                  longitude,
+                  source: "google_plus_code",
+                },
+                result: { display_name: address } as OpenStreetMapResult,
+              };
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    const latitude = Number(first.lat);
+    const longitude = Number(first.lon);
+    if (!isValidLatLng(latitude, longitude)) return null;
+
+    return {
+      coordinates: {
+        latitude,
+        longitude,
+        source: "openstreetmap_forward_geocoding",
+      },
+      result: first as OpenStreetMapResult,
+    };
+  } catch (error) {
+    console.warn("OpenStreetMap forward geocoding error:", error);
+    return null;
+  }
+}
+
+async function reverseGeocodeWithOpenStreetMap(
+  latitude: number,
+  longitude: number,
+) {
   try {
     const query = new URLSearchParams({
       format: "jsonv2",
@@ -40,12 +151,16 @@ async function reverseGeocodeWithOpenStreetMap(latitude: number, longitude: numb
       lon: String(longitude),
       addressdetails: "1",
     });
-    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query.toString()}`, {
-      headers: {
-        "User-Agent": "SPYSS-Admin/1.0 (https://socialmedia-app-spyss.github.io/spyss_admin_branch_details)",
-        "Accept-Language": "en-IN,en;q=0.9",
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${query.toString()}`,
+      {
+        headers: {
+          "User-Agent":
+            "SPYSS-Admin/1.0 (https://socialmedia-app-spyss.github.io/spyss_admin_branch_details)",
+          "Accept-Language": "en-IN,en;q=0.9",
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       console.warn("OpenStreetMap reverse geocoding failed:", response.status);
@@ -87,8 +202,7 @@ function isResolvedGoogleMapsLocationUrl(inputUrl: string) {
     const host = parsedUrl.hostname.toLowerCase();
     const path = parsedUrl.pathname.toLowerCase();
 
-    const isGoogleHost =
-      host === "maps.google.com" ||
+    const isGoogleHost = host === "maps.google.com" ||
       host === "www.google.com" ||
       host === "google.com" ||
       host === "www.google.co.in" ||
@@ -127,7 +241,7 @@ function dmsToDecimal(
   degrees: number,
   minutes: number,
   seconds: number,
-  direction: string
+  direction: string,
 ) {
   let decimal = degrees + minutes / 60 + seconds / 3600;
 
@@ -242,14 +356,14 @@ function extractLatLngFromText(input: string) {
       Number(dmsMatch[1]),
       Number(dmsMatch[2]),
       Number(dmsMatch[3]),
-      dmsMatch[4]
+      dmsMatch[4],
     );
 
     const longitude = dmsToDecimal(
       Number(dmsMatch[5]),
       Number(dmsMatch[6]),
       Number(dmsMatch[7]),
-      dmsMatch[8]
+      dmsMatch[8],
     );
 
     if (isValidLatLng(latitude, longitude)) {
@@ -261,144 +375,7 @@ function extractLatLngFromText(input: string) {
     }
   }
 
-  // Fallback for exact place-pin values in large Google Maps HTML responses
-  // where decoding the entire document fails because of an unrelated malformed
-  // percent sequence. Keep this after the existing decoded patterns so the
-  // normal extraction path always has priority.
-  const encodedDecimalPatterns: Array<{
-    source: string;
-    regex: RegExp;
-    order: "lat_lng" | "lng_lat";
-  }> = [
-    {
-      source: "encoded_place_pin_3d_4d",
-      regex: /%213d(-?\d+(?:\.\d+)?)%214d(-?\d+(?:\.\d+)?)/i,
-      order: "lat_lng",
-    },
-    {
-      source: "encoded_place_pin_1d_2d",
-      regex: /%211d(-?\d+(?:\.\d+)?)%212d(-?\d+(?:\.\d+)?)/i,
-      order: "lng_lat",
-    },
-  ];
-
-  for (const pattern of encodedDecimalPatterns) {
-    const match = input.match(pattern.regex);
-
-    if (!match) {
-      continue;
-    }
-
-    const firstValue = Number(match[1]);
-    const secondValue = Number(match[2]);
-    const latitude = pattern.order === "lng_lat" ? secondValue : firstValue;
-    const longitude = pattern.order === "lng_lat" ? firstValue : secondValue;
-
-    if (isValidLatLng(latitude, longitude)) {
-      return {
-        latitude,
-        longitude,
-        source: pattern.source,
-      };
-    }
-  }
-
   return null;
-}
-
-function extractGoogleMapsFeatureId(input: string) {
-  return input.match(/0x[0-9a-f]+:0x[0-9a-f]+/i)?.[0] || null;
-}
-
-function extractGoogleMapsPreviewUrl(input: string, baseUrl: string) {
-  try {
-    const htmlDecoded = input
-      .replace(/&amp;/gi, "&")
-      .replace(/&#38;/g, "&")
-      .replace(/\\u0026/gi, "&")
-      .replace(/\\u003d/gi, "=");
-    const match = htmlDecoded.match(
-      /href=["']([^"']*\/maps\/preview\/place\?[^"']+)["']/i
-    );
-
-    if (!match?.[1]) {
-      return null;
-    }
-
-    const previewUrl = new URL(match[1], baseUrl);
-
-    if (
-      !isAllowedGoogleMapsUrl(previewUrl.toString()) ||
-      previewUrl.pathname !== "/maps/preview/place"
-    ) {
-      return null;
-    }
-
-    return previewUrl.toString();
-  } catch {
-    return null;
-  }
-}
-
-function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function extractLatLngForFeatureId(input: string, featureId: string) {
-  const escapedFeatureId = escapeRegExp(featureId);
-  const featureCoordinatesPattern = new RegExp(
-    `\\[null,null,(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)\\],"${escapedFeatureId}"`,
-    "i"
-  );
-  const match = input.match(featureCoordinatesPattern);
-
-  if (!match) {
-    return null;
-  }
-
-  const latitude = Number(match[1]);
-  const longitude = Number(match[2]);
-
-  if (!isValidLatLng(latitude, longitude)) {
-    return null;
-  }
-
-  return {
-    latitude,
-    longitude,
-    source: "google_maps_preview_place",
-  };
-}
-
-async function resolveCoordinatesFromGoogleMapsPreview(
-  responseBody: string,
-  finalUrl: string
-) {
-  const featureId = extractGoogleMapsFeatureId(finalUrl);
-  const previewUrl = extractGoogleMapsPreviewUrl(responseBody, finalUrl);
-
-  if (!featureId || !previewUrl) {
-    return null;
-  }
-
-  try {
-    const previewResponse = await fetch(previewUrl, {
-      method: "GET",
-      redirect: "follow",
-      headers: googleMapsRequestHeaders,
-    });
-
-    if (!previewResponse.ok) {
-      console.warn("Google Maps preview request failed:", previewResponse.status);
-      return null;
-    }
-
-    const previewBody = await previewResponse.text();
-    return extractLatLngForFeatureId(previewBody, featureId);
-  } catch (error) {
-    console.warn("Google Maps preview coordinate extraction failed:", error);
-    return null;
-  }
 }
 
 function decodeGoogleMapsAddressPart(input: string) {
@@ -458,7 +435,7 @@ function extractAddressFromUrl(inputUrl: string) {
       const lastPart = parts[parts.length - 1];
 
       const address = cleanExtractedAddress(
-        decodeGoogleMapsAddressPart(lastPart || "")
+        decodeGoogleMapsAddressPart(lastPart || ""),
       );
 
       if (address) {
@@ -478,7 +455,7 @@ function extractAddressFromUrl(inputUrl: string) {
         ?.split("/data=")[0];
 
       const address = cleanExtractedAddress(
-        decodeGoogleMapsAddressPart(part || "")
+        decodeGoogleMapsAddressPart(part || ""),
       );
 
       if (address) {
@@ -498,7 +475,7 @@ function extractAddressFromUrl(inputUrl: string) {
         ?.split("/data=")[0];
 
       const address = cleanExtractedAddress(
-        decodeGoogleMapsAddressPart(part || "")
+        decodeGoogleMapsAddressPart(part || ""),
       );
 
       if (address) {
@@ -542,7 +519,9 @@ function extractPlusCode(parts: string[]) {
     // Examples:
     // XFJF+QJF
     // 7J4V+82 Bengaluru
-    if (/^[23456789CFGHJMPQRVWX]{4,}\+[23456789CFGHJMPQRVWX]{2,}/i.test(cleaned)) {
+    if (
+      /^[23456789CFGHJMPQRVWX]{4,}\+[23456789CFGHJMPQRVWX]{2,}/i.test(cleaned)
+    ) {
       return cleaned;
     }
   }
@@ -707,12 +686,11 @@ function extractAddressParts(address: string | null) {
   const plusCode = extractPlusCode(parts);
   const road = extractRoad(parts);
 
-  const placeName =
-    parts.length > 0 &&
-    !looksLikeOnlyCoordinates(parts[0]) &&
-    parts[0] !== plusCode
-      ? parts[0]
-      : null;
+  const placeName = parts.length > 0 &&
+      !looksLikeOnlyCoordinates(parts[0]) &&
+      parts[0] !== plusCode
+    ? parts[0]
+    : null;
 
   const ignoredWords = [
     "road",
@@ -810,7 +788,7 @@ serve(async (req) => {
           ...corsHeaders,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 
@@ -829,7 +807,7 @@ serve(async (req) => {
             ...corsHeaders,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -846,14 +824,20 @@ serve(async (req) => {
             ...corsHeaders,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     const response = await fetch(url, {
       method: "GET",
       redirect: "follow",
-      headers: googleMapsRequestHeaders,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-IN,en;q=0.9",
+      },
     });
 
     const finalUrl = response.url;
@@ -875,7 +859,7 @@ serve(async (req) => {
             ...corsHeaders,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -907,22 +891,30 @@ serve(async (req) => {
       coordinates = extractLatLngFromText(responseBody);
     }
 
-    if (!coordinates && responseBody) {
-      coordinates = await resolveCoordinatesFromGoogleMapsPreview(
-        responseBody,
-        finalUrl
-      );
-    }
-
     // Address from HTML body is not very reliable.
     // But this fallback may help in some Google response formats.
     if (!addressResult && responseBody) {
       addressResult = extractAddressFromUrl(responseBody);
     }
 
-    const openStreetMapResult = coordinates
-      ? await reverseGeocodeWithOpenStreetMap(coordinates.latitude, coordinates.longitude)
-      : null;
+    let openStreetMapResult: OpenStreetMapResult | null = null;
+
+    if (!coordinates && addressResult?.address) {
+      const forwardResult = await forwardGeocodeWithOpenStreetMap(
+        addressResult.address,
+      );
+      if (forwardResult) {
+        coordinates = forwardResult.coordinates;
+        openStreetMapResult = forwardResult.result;
+      }
+    }
+
+    if (coordinates && !openStreetMapResult) {
+      openStreetMapResult = await reverseGeocodeWithOpenStreetMap(
+        coordinates.latitude,
+        coordinates.longitude,
+      );
+    }
 
     if (!coordinates && !addressResult) {
       return new Response(
@@ -940,11 +932,12 @@ serve(async (req) => {
             ...corsHeaders,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
-    const resolvedAddress = openStreetMapResult?.display_name || addressResult?.address || null;
+    const resolvedAddress = openStreetMapResult?.display_name ||
+      addressResult?.address || null;
     const openStreetMapAddress = openStreetMapResult?.address;
     const addressParts = extractAddressParts(resolvedAddress);
 
@@ -962,12 +955,15 @@ serve(async (req) => {
         coordinateSource: coordinates?.source || null,
 
         address: resolvedAddress,
-        addressSource: openStreetMapResult ? "openstreetmap_nominatim" : addressResult?.source || null,
+        addressSource: openStreetMapResult
+          ? "openstreetmap_nominatim"
+          : addressResult?.source || null,
 
         placeName: addressParts.placeName,
         plusCode: addressParts.plusCode,
         road: addressParts.road,
-        area: openStreetMapAddress?.neighbourhood || openStreetMapAddress?.suburb || addressParts.area,
+        area: openStreetMapAddress?.neighbourhood ||
+          openStreetMapAddress?.suburb || addressParts.area,
         // Nominatim's county represents the Nagara/taluk-level value required
         // by the branch form (for example, "Bangalore South").
         nagara: openStreetMapAddress?.county || null,
@@ -982,7 +978,7 @@ serve(async (req) => {
           ...corsHeaders,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("resolve-map-link error:", error);
@@ -999,7 +995,7 @@ serve(async (req) => {
           ...corsHeaders,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 });

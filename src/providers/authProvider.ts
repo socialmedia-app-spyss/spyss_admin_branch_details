@@ -2,15 +2,12 @@ import { supabaseClient } from "../supabaseClient";
 import { UserProfile } from "../types/user";
 import { getValayaScopeForUser, type ValayaScopeRow } from "../services/valayaScope";
 
-type AdminRole =
-  | "SUPER_ADMIN"
-  | "STATE_ADMIN"
-  | "DISTRICT_ADMIN"
-  | "VALAYA_ADMIN"
-  | "BRANCH_ADMIN"
-  | "PANCHANGA_ADMIN";
-
-type AppRole = AdminRole | "USER";
+import {
+  ADMIN_ROLES,
+  type AdminRole,
+  type AppRole,
+  checkUserAccess,
+} from "./accessControl";
 
 type ExtendedIdentity = UserProfile & {
   name: string;
@@ -20,29 +17,6 @@ type ExtendedIdentity = UserProfile & {
   accessible_valaya_ids?: string[];
   accessible_district_ids?: string[];
 };
-
-const ADMIN_ROLES: AdminRole[] = [
-  "SUPER_ADMIN",
-  "STATE_ADMIN",
-  "DISTRICT_ADMIN",
-  "VALAYA_ADMIN",
-  "BRANCH_ADMIN",
-  "PANCHANGA_ADMIN",
-];
-
-const VALAYA_ADMIN_RESOURCES = [
-  "dashboard",
-  "branches",
-  "latest_branches",
-  "activities",
-  "enquiries",
-  "users",
-  "master_districts",
-  "master_valayas",
-];
-
-const SUPER_ADMIN_ONLY_RESOURCES = ["settings", "master_states", "notifications", "events", "api-stats"];
-const PANCHANGA_RESOURCES = ["daily_panchanga", "daily_amrutha_vachana"];
 
 // Refine can call check(), getIdentity(), and can() at nearly the same time
 // while it resolves the current route. Share one lookup between those callers
@@ -137,8 +111,32 @@ const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
     }
 
     const userProfile = profile as UserProfile;
+    const userRole = (userProfile.role || "").trim().toUpperCase() as AppRole;
 
-    const valayaScope = await getValayaScopeForUser(userProfile);
+    let valayaScope: {
+      valayaCode: string | null;
+      valayaNameEn: string | null;
+      valayaNameKn: string | null;
+      valayaRows: ValayaScopeRow[];
+      districtIds: string[];
+    } = {
+      valayaCode: null,
+      valayaNameEn: null,
+      valayaNameKn: null,
+      valayaRows: [],
+      districtIds: [],
+    };
+
+    if (userRole === "VALAYA_ADMIN" && userProfile.valaya_id) {
+      valayaScope = await getValayaScopeForUser(userProfile);
+    }
+
+    const accessibleValayaIds = Array.from(
+      new Set([
+        ...(userProfile.valaya_id ? [userProfile.valaya_id] : []),
+        ...valayaScope.valayaRows.map((row) => row.id),
+      ]),
+    );
 
     const identity: ExtendedIdentity = {
       ...userProfile,
@@ -146,7 +144,7 @@ const getCurrentUserProfile = async (): Promise<ExtendedIdentity | null> => {
       valaya_code: valayaScope.valayaCode,
       valaya_name: valayaScope.valayaNameEn,
       accessible_valaya_rows: valayaScope.valayaRows,
-      accessible_valaya_ids: valayaScope.valayaRows.map((row) => row.id),
+      accessible_valaya_ids: accessibleValayaIds,
       accessible_district_ids: valayaScope.districtIds,
     };
 
@@ -185,60 +183,163 @@ supabaseClient.auth.onAuthStateChange((event) => {
   }
 });
 
+export { checkUserAccess } from "./accessControl";
+
 export const authProvider = {
-  login: async ({ email, password }: { email: string; password: string }) => {
+  login: async ({ email, password }: { email: string; password?: string }) => {
+    if (!password) {
+      return {
+        success: false,
+        error: {
+          name: "LoginError",
+          message: "Password is required",
+        },
+      };
+    }
+
+    clearIdentityCache();
+
     const { error } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      return { success: false, error };
+      console.error("Login: Supabase signInWithPassword error:", error);
+      return {
+        success: false,
+        error: {
+          name: "LoginError",
+          message: error.message,
+        },
+      };
     }
 
-    clearIdentityCache();
-    return { success: true, redirectTo: "/dashboard" };
+    try {
+      const profile = await getCurrentUserProfile();
+
+      if (!profile) {
+        await supabaseClient.auth.signOut();
+        clearIdentityCache();
+        return {
+          success: false,
+          error: {
+            name: "ProfileError",
+            message: "User profile not found",
+          },
+        };
+      }
+
+      const role = (profile.role || "").trim().toUpperCase() as AppRole;
+      if (!ADMIN_ROLES.includes(role as AdminRole)) {
+        await supabaseClient.auth.signOut();
+        clearIdentityCache();
+        return {
+          success: false,
+          error: {
+            name: "RoleError",
+            message: "You do not have access to the admin panel.",
+          },
+        };
+      }
+
+      if (role !== "SUPER_ADMIN" && (profile.status !== "APPROVED" || !profile.is_active)) {
+        await supabaseClient.auth.signOut();
+        clearIdentityCache();
+        return {
+          success: false,
+          error: {
+            name: "ApprovalError",
+            message:
+              profile.status === "PENDING"
+                ? "Your account is pending administrator approval."
+                : "Your account has been rejected or deactivated.",
+          },
+        };
+      }
+
+      return {
+        success: true,
+        redirectTo: role === "PANCHANGA_ADMIN" ? "/panchanga" : "/dashboard",
+      };
+    } catch (profileError) {
+      console.error("Login: Error during post-auth validation:", profileError);
+      await supabaseClient.auth.signOut();
+      clearIdentityCache();
+      return {
+        success: false,
+        error: {
+          name: "ValidationError",
+          message:
+            profileError instanceof Error
+              ? profileError.message
+              : "Failed to validate user permissions",
+        },
+      };
+    }
   },
 
   logout: async () => {
-    try {
-      await supabaseClient.auth.signOut();
-    } finally {
-      clearIdentityCache();
+    clearIdentityCache();
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      return {
+        success: false,
+        error: {
+          name: "LogoutError",
+          message: error.message,
+        },
+      };
     }
-    return { success: true, redirectTo: "/login" };
+    return {
+      success: true,
+      redirectTo: "/login",
+    };
   },
 
   check: async () => {
     try {
-      const identity = await getCurrentUserProfile();
+      const profile = await getCurrentUserProfile();
 
-      if (!identity) {
-        return { authenticated: false, logout: true, redirectTo: "/login" };
-      }
-
-      if (identity.status !== "APPROVED" || !identity.is_active) {
+      if (!profile) {
         return {
           authenticated: false,
-          redirectTo: "/access-denied",
+          redirectTo: "/login",
+          logout: true,
         };
       }
 
-      if (!ADMIN_ROLES.includes(identity.role as AdminRole)) {
+      const role = (profile.role || "").trim().toUpperCase() as AppRole;
+      if (!ADMIN_ROLES.includes(role as AdminRole)) {
         return {
           authenticated: false,
-          redirectTo: "/access-denied",
+          redirectTo: "/login",
+          logout: true,
+          error: new Error("You do not have access to the admin panel."),
+        };
+      }
+
+      if (role !== "SUPER_ADMIN" && (profile.status !== "APPROVED" || !profile.is_active)) {
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+          logout: true,
+          error: new Error(
+            profile.status === "PENDING"
+              ? "Your account is pending administrator approval."
+              : "Your account has been deactivated or rejected.",
+          ),
         };
       }
 
       return { authenticated: true };
     } catch (error) {
-      console.error("Authentication check failed:", error);
+      console.error("Auth check failed:", error);
       return {
         authenticated: false,
-        error: error instanceof Error
-          ? error
-          : new Error("Authentication check failed"),
+        redirectTo: "/login",
+        logout: true,
+        error: error instanceof Error ? error : new Error("Authentication failed"),
       };
     }
   },
@@ -294,65 +395,9 @@ export const authProvider = {
     if (error) return { success: false, error };
     return { success: true };
   },
-  can: async ({ resource, action: _action }: { resource?: string; action: string; params?: unknown }) => {
+  can: async ({ resource, action, params }: { resource?: string; action: string; params?: unknown }) => {
     const identity = await getCurrentUserProfile();
-
-    if (!identity) {
-      return { can: false };
-    }
-
-    const userRole = identity.role as AppRole;
-
-    if (identity.status !== "APPROVED" || !identity.is_active) {
-      return { can: false };
-    }
-
-    if (userRole === "USER") {
-      return { can: false };
-    }
-
-    if (userRole === "SUPER_ADMIN") {
-      return { can: true };
-    }
-
-    if (userRole === "PANCHANGA_ADMIN") {
-      return {
-        can: resource === "dashboard" ||
-          (resource !== undefined &&
-            PANCHANGA_RESOURCES.includes(resource) &&
-            _action !== "delete"),
-      };
-    }
-
-    if (!resource || SUPER_ADMIN_ONLY_RESOURCES.includes(resource)) {
-      return { can: false };
-    }
-
-    if (userRole === "VALAYA_ADMIN") {
-      return { can: VALAYA_ADMIN_RESOURCES.includes(resource) };
-    }
-
-    if (userRole === "STATE_ADMIN") {
-      return { can: true };
-    }
-
-    if (userRole === "DISTRICT_ADMIN") {
-      return { can: true };
-    }
-
-    if (userRole === "BRANCH_ADMIN") {
-      const allowedBranchResources = [
-        "dashboard",
-        "branches",
-        "latest_branches",
-        "activities",
-        "enquiries",
-      ];
-
-      return { can: allowedBranchResources.includes(resource) };
-    }
-
-    return { can: false };
+    return checkUserAccess({ identity, resource, action, params });
   },
   onError: async (error: Error) => {
     console.error("Auth Provider Error:", error);

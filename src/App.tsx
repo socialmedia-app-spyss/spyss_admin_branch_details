@@ -29,11 +29,13 @@ import { AuthGuard } from "./components/AuthGuard";
 import { AdminUsers } from "./resources/settings/AdminUsers";
 import { Authenticated } from "@refinedev/core";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
+import ViewCarouselIcon from "@mui/icons-material/ViewCarousel";
 import { NotificationList } from "./resources/notifications/list";
 import { NotificationCreate } from "./resources/notifications/create";
 import { NotificationEdit } from "./resources/notifications/edit";
@@ -42,10 +44,19 @@ import { EventList } from "./resources/events/list";
 import { EventCreate } from "./resources/events/create";
 import { EventEdit } from "./resources/events/edit";
 import { EventShow } from "./resources/events/show";
+import { CarouselList } from "./resources/carousel/list";
+import { CarouselCreate } from "./resources/carousel/create";
+import { CarouselEdit } from "./resources/carousel/edit";
+import { CarouselShow } from "./resources/carousel/show";
 import { PanchangaList } from "./resources/panchanga/list";
 import { PanchangaShow } from "./resources/panchanga/show";
 import { AmruthaVachanaList } from "./resources/amrutha-vachana/list";
 import { AmruthaVachanaShow } from "./resources/amrutha-vachana/show";
+import AppSettingsAltIcon from "@mui/icons-material/AppSettingsAlt";
+import { AppConfigList } from "./resources/app-config/list";
+import { AppConfigCreate } from "./resources/app-config/create";
+import { AppConfigEdit } from "./resources/app-config/edit";
+import { AppConfigShow } from "./resources/app-config/show";
 import { ApiStatsPage } from "./pages/api-stats/ApiStatsPage";
 
 function App() {
@@ -80,18 +91,19 @@ function App() {
               }}
               resources={[
                 {
-                  name: "latest_branches",
+                  name: "app_branches",
                   list: "/branches",
                   create: "/branches/create",
                   edit: "/branches/edit/:id",
                   show: "/branches/show/:id",
+                  meta: { label: "Branches", icon: <AccountTreeIcon /> },
                 },
                 {
                   name: "users",
                   list: "/users",
                 },
                 {
-                  name: "notifications",
+                  name: "app_notifications",
                   list: "/notifications",
                   create: "/notifications/create",
                   edit: "/notifications/edit/:id",
@@ -99,7 +111,7 @@ function App() {
                   meta: { label: "Notifications", icon: <NotificationsIcon /> },
                 },
                 {
-                  name: "events",
+                  name: "app_events",
                   list: "/events",
                   create: "/events/create",
                   edit: "/events/edit/:id",
@@ -107,16 +119,32 @@ function App() {
                   meta: { label: "Events", icon: <EventIcon /> },
                 },
                 {
-                  name: "daily_panchanga",
+                  name: "app_carousel",
+                  list: "/carousels",
+                  create: "/carousels/create",
+                  edit: "/carousels/edit/:id",
+                  show: "/carousels/show/:id",
+                  meta: { label: "App Carousel", icon: <ViewCarouselIcon /> },
+                },
+                {
+                  name: "app_panchanga",
                   list: "/panchanga",
                   show: "/panchanga/show/:id",
                   meta: { label: "Daily Panchanga", icon: <CalendarMonthIcon /> },
                 },
                 {
-                  name: "daily_amrutha_vachana",
+                  name: "app_amrutha_vachana",
                   list: "/amrutha-vachana",
                   show: "/amrutha-vachana/show/:id",
                   meta: { label: "Amrutha Vachana", icon: <FormatQuoteIcon /> },
+                },
+                {
+                  name: "app_config",
+                  list: "/app-config",
+                  create: "/app-config/create",
+                  edit: "/app-config/edit/:id",
+                  show: "/app-config/show/:id",
+                  meta: { label: "App Config", icon: <AppSettingsAltIcon /> },
                 },
                 {
                   name: "api-stats",
@@ -149,6 +177,10 @@ function App() {
                   </Route>
 
                   <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN"]} />}>
+                    <Route path="/app-config" element={<AppConfigList />} />
+                    <Route path="/app-config/create" element={<AppConfigCreate />} />
+                    <Route path="/app-config/edit/:id" element={<AppConfigEdit />} />
+                    <Route path="/app-config/show/:id" element={<AppConfigShow />} />
                     <Route path="/api-stats" element={<ApiStatsPage />} />
                     <Route path="/notifications" element={<NotificationList />} />
                     <Route path="/notifications/create" element={<NotificationCreate />} />
@@ -158,6 +190,10 @@ function App() {
                     <Route path="/events/create" element={<EventCreate />} />
                     <Route path="/events/edit/:id" element={<EventEdit />} />
                     <Route path="/events/show/:id" element={<EventShow />} />
+                    <Route path="/carousels" element={<CarouselList />} />
+                    <Route path="/carousels/create" element={<CarouselCreate />} />
+                    <Route path="/carousels/edit/:id" element={<CarouselEdit />} />
+                    <Route path="/carousels/show/:id" element={<CarouselShow />} />
                   </Route>
                   <Route element={<AuthGuard allowedRoles={["SUPER_ADMIN", "PANCHANGA_ADMIN"]} />}>
                     <Route path="/panchanga" element={<PanchangaList />} />

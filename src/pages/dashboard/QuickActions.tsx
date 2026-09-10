@@ -35,6 +35,7 @@ export const QuickActions: React.FC = () => {
         {isAdminOrSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/branches/create"); }}>Create Branch</MenuItem>}
         {isSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/notifications/create"); }}>Create Notification</MenuItem>}
         {isSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/events/create"); }}>Create Event</MenuItem>}
+        {isSuperAdmin && <MenuItem onClick={() => { setAnchorEl(null); navigate("/carousels/create"); }}>Create Carousel Banner</MenuItem>}
       </Menu>
       {canManagePanchanga && (
         <Button variant="outlined" startIcon={<CalendarMonthOutlinedIcon />} onClick={() => navigate("/panchanga")}>

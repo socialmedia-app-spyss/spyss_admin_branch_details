@@ -39,3 +39,15 @@ export const getDisplayName = <T extends Record<string, unknown>>(
     language,
   );
 };
+
+/**
+ * Returns the localized string from a JSONB object shape: `{ en?: string, kn?: string }`.
+ */
+export const getLocalizedJson = (
+  field?: { en?: string | null; kn?: string | null } | null,
+  language: AppLanguage = "en",
+): string => {
+  if (!field) return "";
+  return getLocalizedName(field.en, field.kn, language);
+};
+

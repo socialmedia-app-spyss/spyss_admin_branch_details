@@ -4,6 +4,10 @@ import type { AppLanguage } from "../contexts/language";
 import type { UserProfile } from "../types/user";
 import { getLocalizedName } from "../utils/i18n";
 
+// Valid UUID guaranteed not to match a real master row. PostgreSQL rejects
+// textual sentinels when they are compared with UUID columns.
+export const NO_VALAYA_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
+
 // ---------------------------------------------------------------------------
 // Core row/option shapes
 // ---------------------------------------------------------------------------
@@ -14,8 +18,8 @@ import { getLocalizedName } from "../utils/i18n";
  */
 export type ValayaScopeRow = Pick<
   MasterValaya,
-  "id" | "valaya_name_en" | "valaya_name_kn" | "valaya_code" | "district_id"
->;
+  "id" | "valaya_name_en" | "valaya_name_kn" | "valaya_code"
+> & { district_id: string };
 
 export type ValayaScope = {
   valayaCode: string | null;
@@ -54,7 +58,7 @@ export const getLocalizedValayaName = (
 
 type ValayaOptionRow = {
   id: string;
-  valaya_name?: string;
+  valaya_name?: { en?: string | null; kn?: string | null } | null;
   valaya_name_en?: string;
   valaya_name_kn?: string;
   valaya_code: string;
@@ -67,8 +71,8 @@ type ValayaOptionRow = {
 
 const normalizeValayaOption = (row: ValayaOptionRow): ValayaOption => ({
   id: row.id,
-  valaya_name_en: row.valaya_name_en ?? row.valaya_name ?? "",
-  valaya_name_kn: row.valaya_name_kn ?? row.valaya_name ?? row.valaya_name_en ?? "",
+  valaya_name_en: row.valaya_name_en ?? row.valaya_name?.en ?? row.valaya_name?.kn ?? "",
+  valaya_name_kn: row.valaya_name_kn ?? row.valaya_name?.kn ?? row.valaya_name?.en ?? row.valaya_name_en ?? "",
   valaya_code: row.valaya_code,
   district_id: row.district_id ?? null,
   state_id: row.state_id ?? row.master_districts?.state_id ?? null,
@@ -129,24 +133,60 @@ export const getValayaScopeForUser = async (
     throw valayaRowsError;
   }
 
+  const allMatchingValayas =
+    valayaRows && valayaRows.length > 0 ? valayaRows : [userValaya];
+  const valayaIds = Array.from(
+    new Set([userValaya.id, ...allMatchingValayas.map((v) => v.id)]),
+  );
+
+  // In the current schema, district-to-valaya mappings live in master_valaya_districts
+  const { data: valayaDistricts, error: distError } = await supabaseClient
+    .from("master_valaya_districts")
+    .select("valaya_id, district_id")
+    .in("valaya_id", valayaIds)
+    .eq("is_active", true);
+
+  if (distError) {
+    console.error("getValayaScopeForUser: Error fetching valaya districts:", distError);
+  }
+
+  const districtIds = Array.from(
+    new Set((valayaDistricts ?? []).map((m) => m.district_id).filter(Boolean)),
+  );
+
   const normalizedUserValaya = normalizeValayaOption(userValaya as ValayaOptionRow);
-  const rows: ValayaScopeRow[] = ((valayaRows ?? []) as ValayaOptionRow[])
-    .map(normalizeValayaOption)
-    .filter((row) => Boolean(row.district_id))
-    .map((row) => ({
-      id: row.id,
-      valaya_name_en: row.valaya_name_en,
-      valaya_name_kn: row.valaya_name_kn,
-      valaya_code: row.valaya_code,
-      district_id: row.district_id as string,
-    }));
+
+  const rows: ValayaScopeRow[] =
+    valayaDistricts && valayaDistricts.length > 0
+      ? valayaDistricts.map((m) => {
+          const v =
+            allMatchingValayas.find((item) => item.id === m.valaya_id) || userValaya;
+          const norm = normalizeValayaOption(v as ValayaOptionRow);
+          return {
+            id: v.id,
+            valaya_name_en: norm.valaya_name_en,
+            valaya_name_kn: norm.valaya_name_kn,
+            valaya_code: norm.valaya_code,
+            district_id: m.district_id,
+          };
+        })
+      : allMatchingValayas.map((v) => {
+          const norm = normalizeValayaOption(v as ValayaOptionRow);
+          return {
+            id: v.id,
+            valaya_name_en: norm.valaya_name_en,
+            valaya_name_kn: norm.valaya_name_kn,
+            valaya_code: norm.valaya_code,
+            district_id: (v as any).district_id || "",
+          };
+        });
 
   return {
     valayaCode: userValaya.valaya_code,
     valayaNameEn: normalizedUserValaya.valaya_name_en,
     valayaNameKn: normalizedUserValaya.valaya_name_kn,
     valayaRows: rows,
-    districtIds: rows.map((row) => row.district_id).filter(Boolean) as string[],
+    districtIds,
   };
 };
 
@@ -155,7 +195,7 @@ export const getDistinctValayaOptions = async (): Promise<ValayaOption[]> => {
   // valaya_name (English), which would make Kannada mode display English.
   const masterResult = await supabaseClient
       .from("master_valayas")
-      .select("*, master_districts(state_id)")
+      .select("*")
       .eq("is_active", true)
       .order("display_order", { ascending: true });
 
