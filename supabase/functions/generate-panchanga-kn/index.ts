@@ -218,7 +218,7 @@ Deno.serve(async (request) => {
   }
 
   const { data: row, error: fetchError } = await supabase
-    .from('daily_panchanga')
+    .from('app_panchanga')
     .select('*')
     .eq('panchanga_date', requestedDate)
     .eq('language', LANGUAGE)
@@ -280,7 +280,7 @@ Deno.serve(async (request) => {
     const imageUrl = `${publicUrlData.publicUrl}?v=${version}`
 
     const { error: updateError } = await supabase
-      .from('daily_panchanga')
+      .from('app_panchanga')
       .update({
         image_url: imageUrl,
         image_storage_path: storagePath,
@@ -304,7 +304,7 @@ Deno.serve(async (request) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await supabase
-      .from('daily_panchanga')
+      .from('app_panchanga')
       .update({ image_generation_error: message })
       .eq('id', row.id)
     return json({ error: message }, 500)

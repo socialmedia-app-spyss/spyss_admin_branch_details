@@ -336,7 +336,7 @@ export const PanchangaList = () => {
 
     if (newRow.isNew) {
       const response = await createPanchanga({
-        resource: "daily_panchanga",
+        resource: "app_panchanga",
         values: {
           ...values,
           created_by: identity?.id,
@@ -348,7 +348,7 @@ export const PanchangaList = () => {
     }
 
     const response = await updatePanchanga({
-      resource: "daily_panchanga",
+      resource: "app_panchanga",
       id: newRow.id,
       values: {
         ...values,
@@ -385,7 +385,7 @@ export const PanchangaList = () => {
     }
 
     let duplicateQuery = supabaseClient
-      .from("daily_panchanga")
+      .from("app_panchanga")
       .select("id")
       .eq("panchanga_date", date)
       .eq("language", language);

@@ -365,26 +365,9 @@ export const authProvider = {
 
     clearIdentityCache();
 
-    if (data.user) {
-      const { error: profileError } = await supabaseClient
-        .from("user_profiles")
-        .insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-            full_name,
-            role: "USER",
-            status: "PENDING",
-            is_active: true,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-      if (profileError) {
-        console.error("Register: Error creating user profile in user_profiles table:", profileError);
-        return { success: false, error: profileError };
-      }
-    }
+    // Profile creation is performed by the auth.users database trigger. Signup
+    // commonly has no authenticated session while email confirmation is pending,
+    // so a client-side insert is rejected by the user_profiles RLS policy.
 
     return { success: true, redirectTo: "/login" };
   },

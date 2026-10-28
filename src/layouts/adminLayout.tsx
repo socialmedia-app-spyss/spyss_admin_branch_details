@@ -21,7 +21,7 @@ export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       }}
     >
       <img
-        src="/spyss_admin_branch_details/patanjali_logo-removebg-preview.png" // Corrected path for GitHub Pages subpath deployment
+        src={`${import.meta.env.BASE_URL}patanjali_logo-removebg-preview.png`}
         alt="SPYSS Admin logo"
         style={{ height: "24px", minWidth: "24px" }}
       />
