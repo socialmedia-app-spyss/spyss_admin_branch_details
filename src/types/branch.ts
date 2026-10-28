@@ -31,7 +31,7 @@ export interface Branch {
   country_id: string;
   state_id: string;
   district_id: string;
-  valaya_id: string;
+  valaya_id?: string | null;
   region_id?: string | null;
 
   class_days: string[];
@@ -65,7 +65,7 @@ export interface BranchFormValues {
 
   category_id: string;
   batch_id: string;
-  valaya_id: string;
+  valaya_id?: string | null;
   country_id: string;
   state_id: string;
   district_id: string;
@@ -120,7 +120,7 @@ export interface BranchCreateInput {
   country_id: string;
   state_id: string;
   district_id: string;
-  valaya_id: string;
+  valaya_id?: string | null;
   region_id?: string | null;
 
   class_days: string[];

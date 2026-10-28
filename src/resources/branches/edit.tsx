@@ -24,6 +24,7 @@ export const BranchEdit = () => {
     setValue,
     reset,
     watch,
+    clearErrors,
     handleSubmit,
     refineCore: { onFinish, query },
   } = useForm<Branch, HttpError, BranchFormValues>({
@@ -131,7 +132,7 @@ export const BranchEdit = () => {
       country_id: values.country_id,
       state_id: values.state_id,
       district_id: values.district_id,
-      valaya_id: values.valaya_id,
+      valaya_id: values.valaya_id?.trim() || null,
       region_id: values.region_id?.trim() || null,
       class_days: normalizeClassDays(values.class_days),
       class_timings: values.class_timings.trim(),
@@ -171,6 +172,7 @@ export const BranchEdit = () => {
           errors={errors}
           setValue={setValue}
           watch={watch}
+          clearErrors={clearErrors}
           selectedStateId={selectedStateId}
           selectedDistrictId={selectedDistrictId}
           applyDefaults={false}

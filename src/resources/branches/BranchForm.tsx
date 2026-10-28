@@ -3,6 +3,7 @@ import {
   Controller,
   type Control,
   type FieldErrors,
+  type UseFormClearErrors,
   type UseFormRegister,
   type UseFormSetValue,
   type UseFormWatch,
@@ -40,6 +41,7 @@ import {
 } from "../../services/masterOptionsService";
 import type { BranchFormValues } from "../../types/branch";
 import type { UserProfile } from "../../types/user";
+import { isKarnatakaState, matchesOption, normalizeLabel } from "./branchValidation";
 
 type BranchFormProps = {
   register: UseFormRegister<BranchFormValues>;
@@ -47,6 +49,7 @@ type BranchFormProps = {
   errors: FieldErrors<BranchFormValues>;
   setValue: UseFormSetValue<BranchFormValues>;
   watch: UseFormWatch<BranchFormValues>;
+  clearErrors?: UseFormClearErrors<BranchFormValues>;
   selectedStateId?: string;
   selectedDistrictId?: string;
   applyDefaults?: boolean;
@@ -81,12 +84,6 @@ const convertToMinutes = (hour: string, minute: string, period: string): number 
 
   return h * 60 + m;
 };
-
-const normalizeLabel = (value: string) =>
-  value.trim().toLowerCase().replace(/[\s_-]+/g, "");
-
-const matchesOption = (value: string, expected: string) =>
-  normalizeLabel(value) === normalizeLabel(expected);
 
 const findByEnglishNameOrCode = <T extends object>(
   records: T[],
@@ -252,6 +249,7 @@ export const BranchForm = ({
   errors,
   setValue,
   watch,
+  clearErrors,
   selectedStateId,
   selectedDistrictId,
   applyDefaults = true,
@@ -274,12 +272,24 @@ export const BranchForm = ({
   const classTimings = watch("class_timings");
   const selectedCountryId = watch("country_id");
   const selectedValayaId = watch("valaya_id");
+  const watchedStateId = watch("state_id") || selectedStateId;
   const latitude = watch("latitude");
   const longitude = watch("longitude");
   const googleLocationLink = watch("google_location_link");
   const timingSource = classTimings || initialClassTimings;
   const isValayaAdmin = identity?.role === "VALAYA_ADMIN";
   const { language } = useLanguage();
+
+  const isKarnataka = useMemo(
+    () => isKarnatakaState(watchedStateId, options.states),
+    [options.states, watchedStateId],
+  );
+
+  useEffect(() => {
+    if (!isKarnataka) {
+      clearErrors?.("valaya_id");
+    }
+  }, [clearErrors, isKarnataka]);
 
   // Load master options in 1 single RPC call (with in-memory session caching)
   useEffect(() => {
@@ -409,10 +419,30 @@ export const BranchForm = ({
       : "Class timing must be at least 45 minutes.";
   }, [endAmPm, endHour, endMinute, startAmPm, startHour, startMinute]);
 
-  const filteredStates = useMemo(
-    () => options.states.filter((state) => state.country_id === selectedCountryId),
-    [options.states, selectedCountryId],
-  );
+  const filteredStates = useMemo(() => {
+    const statesForCountry = options.states.filter(
+      (state) => state.country_id === selectedCountryId,
+    );
+    const accessibleDistrictIds = identity?.accessible_district_ids ?? [];
+
+    if (!isValayaAdmin || accessibleDistrictIds.length === 0) {
+      return statesForCountry;
+    }
+
+    const allowedDistrictIds = new Set(accessibleDistrictIds);
+    const allowedStateIds = new Set(
+      options.districts
+        .filter((district) => allowedDistrictIds.has(district.id))
+        .map((district) => district.state_id),
+    );
+    return statesForCountry.filter((state) => allowedStateIds.has(state.id));
+  }, [
+    identity?.accessible_district_ids,
+    isValayaAdmin,
+    options.districts,
+    options.states,
+    selectedCountryId,
+  ]);
 
   const safeStateValue = filteredStates.some((state) => state.id === selectedStateId)
     ? selectedStateId ?? ""
@@ -436,6 +466,7 @@ export const BranchForm = ({
     return districtsForState;
   }, [
     identity?.accessible_district_ids,
+    isKarnataka,
     isValayaAdmin,
     options.districts,
     options.valayaDistricts,
@@ -452,6 +483,14 @@ export const BranchForm = ({
     if (!selectedDistrictId) return [];
     return options.regions.filter((region) => region.district_id === selectedDistrictId);
   }, [options.regions, selectedDistrictId]);
+
+  const hasRegions = filteredRegions.length > 0;
+
+  useEffect(() => {
+    if (!hasRegions) {
+      clearErrors?.("region_id");
+    }
+  }, [clearErrors, hasRegions]);
 
   const displayedValayaOptions = useMemo(() => {
     if (
@@ -574,7 +613,13 @@ export const BranchForm = ({
       }
       return;
     }
-    if (selectedValayaId && options.valayas.length > 0) {
+    if (!selectedValayaId) {
+      if (!isValayaAdmin) {
+        setSelectedValayaCode("");
+      }
+      return;
+    }
+    if (options.valayas.length > 0) {
       const selectedValaya = options.valayas.find((valaya) => valaya.id === selectedValayaId);
       setSelectedValayaCode(selectedValaya?.valaya_code ?? "");
     }
@@ -606,11 +651,17 @@ export const BranchForm = ({
                       value={field.value || ""}
                       onChange={(event) => {
                         field.onChange(event);
-                        setSelectedValayaCode("");
+                        if (!isValayaAdmin) {
+                          setSelectedValayaCode("");
+                        }
                         setValue("state_id", "", { shouldDirty: true, shouldValidate: true });
                         setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
-                        setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                        setValue("valaya_id", isValayaAdmin ? identity?.valaya_id ?? "" : "", {
+                          shouldDirty: true,
+                          shouldValidate: false,
+                        });
                         setValue("region_id", "", { shouldDirty: true, shouldValidate: true });
+                        clearErrors?.("valaya_id");
                       }}
                     >
                       <MenuItem value="">Select country</MenuItem>
@@ -641,10 +692,16 @@ export const BranchForm = ({
                       value={safeStateValue}
                       disabled={!selectedCountryId}
                       onChange={(event) => {
-                        field.onChange(event);
-                        setSelectedValayaCode("");
+                        const nextStateId = event.target.value;
+                        field.onChange(nextStateId);
+                        if (!isValayaAdmin) {
+                          setSelectedValayaCode("");
+                        }
                         setValue("district_id", "", { shouldDirty: true, shouldValidate: true });
-                        setValue("valaya_id", "", { shouldDirty: true, shouldValidate: true });
+                        setValue("valaya_id", isValayaAdmin ? identity?.valaya_id ?? "" : "", {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
                         setValue("region_id", "", { shouldDirty: true, shouldValidate: true });
                       }}
                     >
@@ -661,7 +718,7 @@ export const BranchForm = ({
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={hasRegions ? 4 : 6}>
               <FormControl fullWidth error={!!errors.valaya_id}>
                 <InputLabel id="valaya-label">Valaya *</InputLabel>
                 <Controller
@@ -706,7 +763,7 @@ export const BranchForm = ({
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={hasRegions ? 4 : 6}>
               <FormControl fullWidth error={!!errors.district_id}>
                 <InputLabel id="district-label">District *</InputLabel>
                 <Controller
@@ -724,7 +781,8 @@ export const BranchForm = ({
                         const districtId = event.target.value;
                         field.onChange(districtId);
                         setValue("district_id", districtId, { shouldDirty: true, shouldValidate: true });
-                        setValue("region_id", "", { shouldDirty: true, shouldValidate: true });
+                        setValue("region_id", "", { shouldDirty: true, shouldValidate: false });
+                        clearErrors?.("region_id");
                       }}
                     >
                       <MenuItem value="">Select district</MenuItem>
@@ -740,45 +798,42 @@ export const BranchForm = ({
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth error={!!errors.region_id}>
-                <InputLabel id="region-label">Region (Zone) *</InputLabel>
-                <Controller
-                  name="region_id"
-                  control={control}
-                  rules={{
-                    validate: (value) =>
-                      filteredRegions.length === 0 || Boolean(value) || "This field is required",
-                  }}
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      labelId="region-label"
-                      label="Region (Zone) *"
-                      value={field.value || ""}
-                      disabled={!selectedDistrictId}
-                      onChange={(event) => {
-                        field.onChange(event.target.value || null);
-                      }}
-                    >
-                      <MenuItem value="">
-                        <em>{language === "kn" ? "ಯಾವುದೂ ಇಲ್ಲ / ಅನ್ವಯಿಸುವುದಿಲ್ಲ" : "None / Not Applicable"}</em>
-                      </MenuItem>
-                      {filteredRegions.map((region) => (
-                        <MenuItem key={region.id} value={region.id}>
-                          {getLocalizedName(region.region_name_en, region.region_name_kn, language)}
+            {hasRegions && (
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth error={!!errors.region_id}>
+                  <InputLabel id="region-label">Region (Zone) *</InputLabel>
+                  <Controller
+                    name="region_id"
+                    control={control}
+                    rules={{ required: "This field is required" }}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        labelId="region-label"
+                        label="Region (Zone) *"
+                        value={field.value || ""}
+                        disabled={!selectedDistrictId}
+                        onChange={(event) => {
+                          field.onChange(event.target.value || null);
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>{language === "kn" ? "ಪ್ರದೇಶ ಆಯ್ಕೆಮಾಡಿ" : "Select Region (Zone)"}</em>
                         </MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                />
-                <FormHelperText>
-                  {filteredRegions.length > 0
-                    ? errors.region_id?.message || "Required for the selected district."
-                    : "No specific regions configured for this district."}
-                </FormHelperText>
-              </FormControl>
-            </Grid>
+                        {filteredRegions.map((region) => (
+                          <MenuItem key={region.id} value={region.id}>
+                            {getLocalizedName(region.region_name_en, region.region_name_kn, language)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    )}
+                  />
+                  <FormHelperText>
+                    {errors.region_id?.message || "Required for the selected district."}
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+            )}
           </Grid>
         </CardContent>
       </Card>

@@ -17,6 +17,7 @@ export const BranchCreate = () => {
     control,
     setValue,
     watch,
+    clearErrors,
     handleSubmit,
     refineCore: { onFinish },
   } = useForm<BaseRecord, HttpError, BranchFormValues>({
@@ -102,7 +103,7 @@ export const BranchCreate = () => {
       country_id: values.country_id,
       state_id: values.state_id,
       district_id: values.district_id,
-      valaya_id: values.valaya_id,
+      valaya_id: values.valaya_id?.trim() || null,
       region_id: values.region_id?.trim() || null,
       class_days: normalizeClassDays(values.class_days),
       class_timings: values.class_timings.trim(),
@@ -135,6 +136,7 @@ export const BranchCreate = () => {
         errors={errors}
         setValue={setValue}
         watch={watch}
+        clearErrors={clearErrors}
         selectedStateId={selectedStateId}
         selectedDistrictId={selectedDistrictId}
       />
